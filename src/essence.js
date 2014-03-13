@@ -11,6 +11,8 @@ var Essence = function(meta, params) {
 	for(var property in meta.fields){
 		this[property] = params[property];
 	}
+
+	if(meta.init) meta.init(this);
 }
 
 Essence.init = function(dbLabmdaFunc) {
