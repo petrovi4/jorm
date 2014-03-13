@@ -1,0 +1,26 @@
+{
+  "name": "jorm",
+  "description": "Simple orm - just orm",
+  "main": "./src/jorm",
+  "author": {
+    "name": "Alexey Talkan"
+  },
+  "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/petrovi4/jorm.git"
+  },
+  "bugs": {
+    "url": "https://github.com/petrovi4/jorm/issues"
+  },
+  "devDependencies": {
+    "pg": "*",
+    "jquery": "*"
+  },
+  "readmeFilename": "README.md",
+  "homepage": "https://github.com/petrovi4/jorm",
+  "dependencies": {
+    "pg": "~2.11.1",
+    "jquery": "~2.1.0"
+  }
+}
