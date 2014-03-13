@@ -1,11 +1,13 @@
 var pg = require('pg');
-var jquery = require('jquery');
+var extend = require('extend');
 
 var dbLabmda;
 
 var Essence = function(meta, params) {
 	this.meta = meta;
 
+	extend(this, meta);
+	
 	for(var property in meta.fields){
 		this[property] = params[property];
 	}
@@ -28,10 +30,11 @@ Essence.get = function(meta, params, done) {
 	}
 	else{
 		var i = 1;
+		whereClause = '';
 		whereParams = [];
 
 		for(var whereParam in params){
-			whereClause = (whereClause ? ' AND ' : ' WHERE ') + whereParam + ' = $' + i.toString();
+			whereClause += (whereClause ? ' AND ' : ' WHERE ') + whereParam + ' = $' + i.toString();
 			whereParams.push(params[whereParam]);
 			i++;
 		}	

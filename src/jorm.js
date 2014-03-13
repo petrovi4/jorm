@@ -1,4 +1,5 @@
 var pg = require('pg');
+var extend = require('extend');
 
 var essence = require('./essence');
 
@@ -12,10 +13,10 @@ exports.create = function(connectionString, config) {
 		});
 	});
 
-	for(var essenceMeta in config){
+	extend(this, config);
 
-		this[ essenceMeta ] = { 
-			meta: config[ essenceMeta ],
+	for(var essenceMeta in this){
+		var extObj = {
 			create: function (params) {
 				return new essence(config[ essenceMeta ], params)
 			},
@@ -23,6 +24,8 @@ exports.create = function(connectionString, config) {
 				essence.get( config[ essenceMeta ], params, done );
 			}
 		}
+
+		extend( this[ essenceMeta ], extObj);
 	}
 
 	console.log(this);

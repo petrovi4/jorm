@@ -15,12 +15,12 @@
   },
   "devDependencies": {
     "pg": "*",
-    "jquery": "*"
+    "extend": "*"
   },
   "readmeFilename": "README.md",
   "homepage": "https://github.com/petrovi4/jorm",
   "dependencies": {
     "pg": "~2.11.1",
-    "jquery": "~2.1.0"
+    "extend": "~1.2.1"
   }
 }
