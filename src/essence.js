@@ -45,7 +45,7 @@ Essence.get = function(meta, params, done) {
 	dbLabmda(function(err, client, doneDB) {
 		if(err){ console.error(err); doneDB(); done('DB_ERROR'); return; }
 
-		var queryString = 'SELECT '+ selectFields +' FROM ' + meta.name + (whereClause || '');
+		var queryString = 'SELECT '+ selectFields +' FROM "' + meta.name + '"' + (whereClause || '');
 
 		console.log(queryString, whereParams);
 		client.query(queryString, whereParams, function(err, result) {
@@ -85,7 +85,7 @@ Essence.prototype.save = function(done) {
 				i++;
 			}
 
-			var updateString = 'UPDATE '+ _this.meta.name +' SET '+ updateFields +' WHERE id=$1';
+			var updateString = 'UPDATE "'+ _this.meta.name +'" SET '+ updateFields +' WHERE id=$1';
 
 			console.log(updateString, updateParams);
 			client.query(updateString, updateParams, function(err, result) {
@@ -113,7 +113,7 @@ Essence.prototype.save = function(done) {
 				i++;
 			}
 
-			client.query('INSERT INTO ' + _this.meta.name + ' (' + insertFields + ') VALUES (' + insertValues +') RETURNING id', insertParams, function(err, result) {
+			client.query('INSERT INTO "' + _this.meta.name + '" (' + insertFields + ') VALUES (' + insertValues +') RETURNING id', insertParams, function(err, result) {
 				doneDB();
 				if(err){ console.error('Cant insert ' + _this.meta.name, err); done('DB_ERROR'); return; }
 
@@ -134,7 +134,7 @@ Essence.prototype.delete = function(done) {
 
 		console.info('Start delete ', _this.meta.name);
 
-		client.query('DELETE FROM ' + _this.meta.name + ' WHERE id = $1', [_this.id], function(err, result) {
+		client.query('DELETE FROM "' + _this.meta.name + '" WHERE id = $1', [_this.id], function(err, result) {
 			doneDB();
 			if(err){ console.error('Cant delete ' + _this.meta.name, err); done('DB_ERROR'); return; }
 
