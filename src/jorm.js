@@ -18,7 +18,7 @@ exports.create = function(connectionString, config) {
 	for(var essenceMeta in this){
 
 		this[ essenceMeta ].create = function (params) {
-			return new essence(this, params)
+			return new essence(this, params || {})
 		};
 
 		this[ essenceMeta ].get = function (params, done) {

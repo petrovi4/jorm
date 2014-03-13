@@ -120,7 +120,10 @@ Essence.prototype.save = function(done) {
 				i++;
 			}
 
-			client.query('INSERT INTO "' + _this.meta.table + '" (' + insertFields + ') VALUES (' + insertValues +') RETURNING id', insertParams, function(err, result) {
+			var insertString = 'INSERT INTO "' + _this.meta.table + '" (' + insertFields + ') VALUES (' + insertValues +') RETURNING id';
+
+			console.log(insertString, insertParams);
+			client.query(insertString, insertParams, function(err, result) {
 				doneDB();
 				if(err){ console.error('Cant insert ' + _this.meta.table, err); done('DB_ERROR'); return; }
 
