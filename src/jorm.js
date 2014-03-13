@@ -16,18 +16,19 @@ exports.create = function(connectionString, config) {
 	extend(this, config);
 
 	for(var essenceMeta in this){
-		var extObj = {
-			create: function (params) {
-				return new essence(config[ essenceMeta ], params)
-			},
-			get: function (params, done) {
-				essence.get( config[ essenceMeta ], params, done );
-			}
+
+		this[ essenceMeta ].create = function (params) {
+			return new essence(this, params)
+		};
+
+		this[ essenceMeta ].get = function (params, done) {
+
+			// console.log('essenceMeta', essenceMeta);
+			// console.log('this', this);
+			essence.get( this, params, done );
 		}
 
-		extend( this[ essenceMeta ], extObj);
 	}
 
-	console.log(this);
 	return this;
 }

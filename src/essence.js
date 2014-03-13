@@ -12,7 +12,7 @@ var Essence = function(meta, params) {
 		this[property] = params[property];
 	}
 
-	if(meta.init) meta.init(this);
+	if(this.init) this.init(params);
 }
 
 Essence.init = function(dbLabmdaFunc) {
@@ -20,7 +20,7 @@ Essence.init = function(dbLabmdaFunc) {
 }
 
 Essence.get = function(meta, params, done) {
-	console.log('Start get ' + meta.name, params);
+	console.log('Start get ' + meta.table, params);
 
 	var whereClause;
 	var whereParams;
@@ -36,6 +36,8 @@ Essence.get = function(meta, params, done) {
 		whereParams = [];
 
 		for(var whereParam in params){
+			if( params[whereParam] == undefined ) continue;
+
 			whereClause += (whereClause ? ' AND ' : ' WHERE ') + whereParam + ' = $' + i.toString();
 			whereParams.push(params[whereParam]);
 			i++;
@@ -50,12 +52,12 @@ Essence.get = function(meta, params, done) {
 	dbLabmda(function(err, client, doneDB) {
 		if(err){ console.error(err); doneDB(); done('DB_ERROR'); return; }
 
-		var queryString = 'SELECT '+ selectFields +' FROM "' + meta.name + '"' + (whereClause || '');
+		var queryString = 'SELECT '+ selectFields +' FROM "' + meta.table + '"' + (whereClause || '');
 
 		console.log(queryString, whereParams);
 		client.query(queryString, whereParams, function(err, result) {
 			doneDB();
-			if(err){ console.error('Cant select ' + meta.name, err); done('DB_ERROR'); return; }
+			if(err){ console.error('Cant select ' + meta.table, err); done('DB_ERROR'); return; }
 
 			var essences = [];
 
@@ -63,7 +65,7 @@ Essence.get = function(meta, params, done) {
 				essences.push( new Essence(meta, result.rows[i]) );
 			}
 
-			console.info('Getted '+ meta.name, essences.length);
+			console.info('Getted '+ meta.table, essences.length);
 			done && done(err, essences);
 		});
 	});
@@ -76,7 +78,7 @@ Essence.prototype.save = function(done) {
 		if(err){ console.error(err); doneDB(); done('DB_ERROR'); return; }
 
 		if(_this.id){ // update
-			console.info('Start update ', _this.meta.name);
+			console.info('Start update ', _this.meta.table);
 		
 			var updateFields = '';
 			var i = 2;
@@ -90,19 +92,19 @@ Essence.prototype.save = function(done) {
 				i++;
 			}
 
-			var updateString = 'UPDATE "'+ _this.meta.name +'" SET '+ updateFields +' WHERE id=$1';
+			var updateString = 'UPDATE "'+ _this.meta.table +'" SET '+ updateFields +' WHERE id=$1';
 
 			console.log(updateString, updateParams);
 			client.query(updateString, updateParams, function(err, result) {
 				doneDB();
-				if(err){ console.error('Cant update '+_this.meta.name, err); done('DB_ERROR'); return; }
+				if(err){ console.error('Cant update '+_this.meta.table, err); done('DB_ERROR'); return; }
 
-				console.info('Updated', _this.meta.name);
+				console.info('Updated', _this.meta.table);
 				done && done(null, _this);
 			});
 		}
 		else{ // insert
-			console.info('Start insert ', _this.meta.name);
+			console.info('Start insert ', _this.meta.table);
 
 			var insertFields = '';
 			var insertValues = '';
@@ -118,12 +120,12 @@ Essence.prototype.save = function(done) {
 				i++;
 			}
 
-			client.query('INSERT INTO "' + _this.meta.name + '" (' + insertFields + ') VALUES (' + insertValues +') RETURNING id', insertParams, function(err, result) {
+			client.query('INSERT INTO "' + _this.meta.table + '" (' + insertFields + ') VALUES (' + insertValues +') RETURNING id', insertParams, function(err, result) {
 				doneDB();
-				if(err){ console.error('Cant insert ' + _this.meta.name, err); done('DB_ERROR'); return; }
+				if(err){ console.error('Cant insert ' + _this.meta.table, err); done('DB_ERROR'); return; }
 
 				_this.id = result.rows[0].id;
-				console.info('Inserted', _this.meta.name);
+				console.info('Inserted', _this.meta.table);
 				done && done(err, _this);
 			});
 		}
@@ -137,13 +139,13 @@ Essence.prototype.delete = function(done) {
 	dbLabmda(function(err, client, doneDB) {
 		if(err){ console.error(err); doneDB(); done('DB_ERROR'); return; }
 
-		console.info('Start delete ', _this.meta.name);
+		console.info('Start delete ', _this.meta.table);
 
-		client.query('DELETE FROM "' + _this.meta.name + '" WHERE id = $1', [_this.id], function(err, result) {
+		client.query('DELETE FROM "' + _this.meta.table + '" WHERE id = $1', [_this.id], function(err, result) {
 			doneDB();
-			if(err){ console.error('Cant delete ' + _this.meta.name, err); done('DB_ERROR'); return; }
+			if(err){ console.error('Cant delete ' + _this.meta.table, err); done('DB_ERROR'); return; }
 
-			console.info('Deleted', _this.meta.name);
+			console.info('Deleted', _this.meta.table);
 			done && done(err, _this);
 		});
 		
