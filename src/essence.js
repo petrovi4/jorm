@@ -38,9 +38,20 @@ Essence.get = function(meta, params, done) {
 		for(var whereParam in params){
 			if( params[whereParam] == undefined ) continue;
 
-			whereClause += (whereClause ? ' AND ' : ' WHERE ') + whereParam + ' = $' + i.toString();
-			whereParams.push(params[whereParam]);
-			i++;
+			if(params[whereParam] instanceof Array){
+				whereClause += (whereClause ? ' AND ' : ' WHERE ') + whereParam + ' in (';
+				for(var arrayIndex = 0; arrayIndex < params[whereParam].length; arrayIndex++){
+					whereClause += (arrayIndex == 0 ? '' : ', ') + '$' + i.toString();
+					whereParams.push(params[whereParam][arrayIndex]);
+					i++;
+				}
+				whereClause += ')';
+			}
+			else{
+				whereClause += (whereClause ? ' AND ' : ' WHERE ') + whereParam + ' = $' + i.toString();
+				whereParams.push(params[whereParam]);
+				i++;
+			}
 		}	
 	}
 
