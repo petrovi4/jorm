@@ -35,8 +35,11 @@ Essence.get = function(meta, params, done) {
 		whereClause = '';
 		whereParams = [];
 
+		orderClause = '';
+
 		for(var whereParam in params){
 			if( params[whereParam] == undefined ) continue;
+			if( whereParam.indexOf('order by') != -1 ) continue;
 
 			if(params[whereParam] instanceof Array){
 				whereClause += (whereClause ? ' AND ' : ' WHERE ') + whereParam + ' in (';
@@ -55,6 +58,22 @@ Essence.get = function(meta, params, done) {
 		}	
 	}
 
+	if(meta.order){
+		orderClause = meta.order(params);
+	}
+	else{
+		for(var whereParam in params){
+			if( params[whereParam] == undefined ) continue;
+
+			if(whereParam == 'order by asc'){
+				orderClause = ' order by ' + params[whereParam] + ' asc';
+			}
+			else if(whereParam == 'order by desc'){
+				orderClause = ' order by ' + params[whereParam] + ' desc';
+			}
+		}
+	}
+
 	var selectFields = '';
 	for(var property in meta.fields){
 		selectFields += (selectFields.length > 0 ? ', ' : '') + property;
@@ -63,7 +82,7 @@ Essence.get = function(meta, params, done) {
 	dbLabmda(function(err, client, doneDB) {
 		if(err){ console.error(err); doneDB(); done('DB_ERROR'); return; }
 
-		var queryString = 'SELECT '+ selectFields +' FROM "' + meta.table + '"' + (whereClause || '');
+		var queryString = 'SELECT '+ selectFields +' FROM "' + meta.table + '"' + (whereClause || '') + orderClause;
 
 		console.log(queryString, whereParams);
 		client.query(queryString, whereParams, function(err, result) {
