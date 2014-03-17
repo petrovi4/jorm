@@ -19,41 +19,69 @@ Essence.init = function(dbLabmdaFunc) {
 	dbLabmda = dbLabmdaFunc;
 }
 
+
+Essence.internalWhereProcess = function(param, value, index) {
+	var whereClause = '';
+	var whereParams = [];
+
+	if( value == undefined ) return;
+	if( param.indexOf('order by') != -1 ) return;
+
+	if(value instanceof Array){
+		whereClause += param + ' in (';
+		for(var arrayIndex = 0; arrayIndex < value.length; arrayIndex++){
+			whereClause += (arrayIndex == 0 ? '' : ', ') + '$' + index.toString();
+			whereParams.push(value[arrayIndex]);
+			index++;
+		}
+		whereClause += ')';
+	}
+	else if(value.comparsion && value.value){
+		whereClause += param + ' ' + value.comparsion + ' $' + index.toString();
+		whereParams.push(value.value);
+		index++;
+	}
+	else{
+		whereClause += param + ' = $' + index.toString();
+		whereParams.push(value);
+		index++;
+	}
+	return {whereClause: whereClause, whereParams: whereParams, index: index};
+}
+
 Essence.get = function(meta, params, done) {
 	console.log('Start get ' + meta.table, params);
 
 	var whereClause;
 	var whereParams;
+	var orderClause;
 
 	if(meta.where){
 		var where = meta.where(params);
-		whereClause = where.clause;
-		whereParams = where.params;
+		whereClause = where.whereClause;
+		whereParams = where.whereParams;
 	}
 	else{
-		var i = 1;
+		var index = 1;
 		whereClause = '';
 		whereParams = [];
 
-		orderClause = '';
-
 		for(var whereParam in params){
-			if( params[whereParam] == undefined ) continue;
-			if( whereParam.indexOf('order by') != -1 ) continue;
-
-			if(params[whereParam] instanceof Array){
-				whereClause += (whereClause ? ' AND ' : ' WHERE ') + whereParam + ' in (';
-				for(var arrayIndex = 0; arrayIndex < params[whereParam].length; arrayIndex++){
-					whereClause += (arrayIndex == 0 ? '' : ', ') + '$' + i.toString();
-					whereParams.push(params[whereParam][arrayIndex]);
-					i++;
-				}
-				whereClause += ')';
+			console.log('\n\n' + 'Process', whereParam, params[whereParam]);
+			var where = null;
+			if(meta.whereParam){
+				where = meta.whereParam(params);
 			}
-			else{
-				whereClause += (whereClause ? ' AND ' : ' WHERE ') + whereParam + ' = $' + i.toString();
-				whereParams.push(params[whereParam]);
-				i++;
+
+			if(!where){
+				where = Essence.internalWhereProcess(whereParam, params[whereParam], index);
+			}
+
+			console.log('where', where);
+			if(where){
+				whereClause += ((whereClause && whereClause.length > 0) ? ' AND ' : ' WHERE ') + where.whereClause;
+				whereParams = whereParams.concat(where.whereParams);
+				index = where.index || (index + 1);
 			}
 		}	
 	}
@@ -66,10 +94,10 @@ Essence.get = function(meta, params, done) {
 			if( params[whereParam] == undefined ) continue;
 
 			if(whereParam == 'order by asc'){
-				orderClause = ' order by ' + params[whereParam] + ' asc';
+				orderClause = ' order by "' + params[whereParam] + '" asc';
 			}
 			else if(whereParam == 'order by desc'){
-				orderClause = ' order by ' + params[whereParam] + ' desc';
+				orderClause = ' order by "' + params[whereParam] + '" desc';
 			}
 		}
 	}
