@@ -61,7 +61,8 @@ Essence.get = function(meta, params, done) {
 		whereClause = where.whereClause;
 		whereParams = where.whereParams;
 	}
-	else{
+	
+	if(!whereClause && !whereParams){
 		var index = 1;
 		whereClause = '';
 		whereParams = [];
