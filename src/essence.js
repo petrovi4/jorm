@@ -54,14 +54,16 @@ Essence.get = function(meta, params, done) {
 
 	var whereClause;
 	var whereParams;
-	var orderClause;
+	var orderClause = '';
 
 	if(meta.where){
 		var where = meta.where(params);
-		whereClause = where.whereClause;
-		whereParams = where.whereParams;
+		if(where){
+			whereClause = where.whereClause;
+			whereParams = where.whereParams;
+		}
 	}
-	
+
 	if(!whereClause && !whereParams){
 		var index = 1;
 		whereClause = '';
