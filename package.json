@@ -5,7 +5,7 @@
   "author": {
     "name": "Alexey Talkan"
   },
-  "version": "0.0.14",
+  "version": "0.1.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/petrovi4/jorm.git"
@@ -15,12 +15,20 @@
   },
   "devDependencies": {
     "pg": "*",
-    "extend": "*"
+    "extend": "*",
+    "async": "*",
+    "should": "*",
+    "mocha": "*",
+    "supertest": "*"
   },
   "readmeFilename": "README.md",
   "homepage": "https://github.com/petrovi4/jorm",
   "dependencies": {
     "pg": "~2.11.1",
-    "extend": "~1.2.1"
+    "extend": "~1.2.1",
+    "async": "^0.2.10",
+    "should": "^3.2.0-beta1",
+    "supertest": "^0.10.0",
+    "mocha": "^1.18.2"
   }
 }

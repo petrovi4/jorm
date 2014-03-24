@@ -1,33 +1,52 @@
 var pg = require('pg');
 var extend = require('extend');
+var async = require('async');
 
 var essence = require('./essence');
 
-exports.create = function(connectionString, config) {
-	essence.init(function (executeInDBScope) {
-		pg.connect(connectionString, function(err, client, donePG) {
-			if(err){ console.error(err); donePG(); done('DB_ERROR'); return; }
-			console.log('Connected to PG');
+exports.create = function(jormParams, config) {
+	this.connectionString = (typeof jormParams == 'string' ? jormParams : jormParams.connectionString);
+	this.logSQL = jormParams.logSQL != null ? jormParams.logSQL : true;
+	this.log = jormParams.log != null ? jormParams.log : true;
+	
+	// console.log('connectionString', this.connectionString);
+	// console.log('logSQL', this.logSQL);
+
+	var _this = this;
+	essence.initInternal(function (executeInDBScope) {
+		pg.connect(_this.connectionString, function(err, client, donePG) {
+			if(err){ console.error(err); donePG(); executeInDBScope('DB_ERROR'); return; }
+			if(_this.log) console.log('Connected to PG');
 
 			executeInDBScope(err, client, donePG);
 		});
 	});
 
 	extend(this, config);
+	var _this = this;
 
 	for(var essenceMeta in this){
+		extend( _this[ essenceMeta ], essence );
 
-		this[ essenceMeta ].create = function (params) {
-			return new essence(this, params || {})
+		_this[ essenceMeta ].name = essenceMeta;
+		_this[ essenceMeta ].jorm = _this;
+
+		_this[ essenceMeta ].create = function (params) {
+			return new essence(this, params || {});
 		};
 
-		this[ essenceMeta ].get = function (params, done) {
+		// this[ essenceMeta ].get = function (params, done) {
+		// 	essence.get( this, params, done );
+		// };
 
-			// console.log('essenceMeta', essenceMeta);
-			// console.log('this', this);
-			essence.get( this, params, done );
+		_this[ essenceMeta ].getPublicArr = function(arr){
+			var result = [];
+			for(var i=0; i<arr.length; i++){
+				var publicEssence = arr[i].getPublic()
+				result.push(publicEssence);
+			}
+			return result;
 		}
-
 	}
 
 	return this;
