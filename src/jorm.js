@@ -2,9 +2,9 @@ var pg = require('pg');
 var extend = require('extend');
 var async = require('async');
 
-var essence = require('./essence');
+module.exports = function(jormParams, config) {
+	var essence = require('./essence');
 
-exports.create = function(jormParams, config) {
 	this.connectionString = (typeof jormParams == 'string' ? jormParams : jormParams.connectionString);
 	this.logSQL = jormParams.logSQL != null ? jormParams.logSQL : true;
 	this.log = jormParams.log != null ? jormParams.log : true;
@@ -13,17 +13,16 @@ exports.create = function(jormParams, config) {
 	// console.log('logSQL', this.logSQL);
 
 	var _this = this;
-	essence.initInternal(function (executeInDBScope) {
+	this.dbLabmda = function (executeInDBScope) {
 		pg.connect(_this.connectionString, function(err, client, donePG) {
 			if(err){ console.error(err); donePG(); executeInDBScope('DB_ERROR'); return; }
 			if(_this.log) console.log('Connected to PG');
 
 			executeInDBScope(err, client, donePG);
 		});
-	});
+	};
 
 	extend(this, config);
-	var _this = this;
 
 	for(var essenceMeta in this){
 		extend( _this[ essenceMeta ], essence );

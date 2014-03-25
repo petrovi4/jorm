@@ -1,8 +1,6 @@
 var pg = require('pg');
 var extend = require('extend');
 
-var dbLabmda;
-
 var Essence = function(meta, params, joinParams) {	
 	// console.log('Create new', meta.name, params);
 	extend(this, meta);
@@ -17,10 +15,6 @@ var Essence = function(meta, params, joinParams) {
 	}
 
 	if(this.init) this.init(params);
-}
-
-Essence.initInternal = function(dbLabmdaFunc) {
-	dbLabmda = dbLabmdaFunc;
 }
 
 Essence.internalWhereProcess = function(meta, param, value, index) {
@@ -76,7 +70,7 @@ Essence.getJoinParams = function(join) {
 }
 
 Essence.get = function(params, done) {
-	if(jorm.log) console.log('Start get', params);	
+	if(this.jorm.log) console.log('Start get', params);	
 
 	var selectFields = this.getSelectFields();
 	var tablesJoin = '';
@@ -148,7 +142,7 @@ Essence.get = function(params, done) {
 	}
 
 	var _this = this;
-	dbLabmda(function(err, client, doneDB) {
+	this.jorm.dbLabmda(function(err, client, doneDB) {
 		if(err){ console.error(err); doneDB(); done('DB_ERROR'); return; }
 
 		var queryString = 'SELECT '+ selectFields +' FROM "' + _this.table + '"' + tablesJoin + (whereJoinClause.length > 0 || whereClause.length > 0 ? ' WHERE' : '') + whereJoinClause + (whereJoinClause.length > 0 ? ' AND' : '') + (whereClause || '') + orderClause;
@@ -183,7 +177,7 @@ Essence.get = function(params, done) {
 				}
 			}
 
-			if(jorm.log) console.info('Getted '+ _this.table, essences.length);	
+			if(_this.jorm.log) console.info('Getted '+ _this.table, essences.length);	
 
 			done && done(err, essences);
 		});
@@ -193,11 +187,11 @@ Essence.get = function(params, done) {
 Essence.prototype.save = function(done) {
 	var _this = this;
 
-	dbLabmda(function(err, client, doneDB) {
+	this.jorm.dbLabmda(function(err, client, doneDB) {
 		if(err){ console.error(err); doneDB(); done('DB_ERROR'); return; }
 
 		if(_this.id){ // update
-			if(jorm.log) console.info('Start update ', _this.table);
+			if(_this.jorm.log) console.info('Start update ', _this.table);
 		
 			var updateFields = '';
 			var i = 2;
@@ -219,12 +213,12 @@ Essence.prototype.save = function(done) {
 				doneDB();
 				if(err){ console.error('Cant update\n', updateString, '\n' + err); done('DB_ERROR'); return; }
 
-				if(jorm.log) console.info('Updated', _this.table);
+				if(_this.jorm.log) console.info('Updated', _this.table);
 				done && done(null, _this);
 			});
 		}
 		else{ // insert
-			if(jorm.log) console.info('Start insert ', _this.table);
+			if(_this.jorm.log) console.info('Start insert ', _this.table);
 
 			var insertFields = '';
 			var insertValues = '';
@@ -249,7 +243,7 @@ Essence.prototype.save = function(done) {
 				if(err){ console.error('Cant insert\n', insertString, '\n'+err); done('DB_ERROR'); return; }
 
 				_this.id = result.rows[0].id;
-				if(jorm.log) console.info('Inserted', _this.table);
+				if(_this.jorm.log) console.info('Inserted', _this.table);
 				done && done(err, _this);
 			});
 		}
@@ -260,16 +254,16 @@ Essence.prototype.save = function(done) {
 Essence.prototype.delete = function(done) {
 	var _this = this;
 
-	dbLabmda(function(err, client, doneDB) {
+	this.jorm.dbLabmda(function(err, client, doneDB) {
 		if(err){ console.error(err); doneDB(); done('DB_ERROR'); return; }
 
-		if(jorm.log) console.info('Start delete ', _this.table);
+		if(_this.jorm.log) console.info('Start delete ', _this.table);
 
 		client.query('DELETE FROM "' + _this.table + '" WHERE id = $1', [_this.id], function(err, result) {
 			doneDB();
 			if(err){ console.error('Cant delete ' + _this.table, err); done('DB_ERROR'); return; }
 
-			if(jorm.log) console.info('Deleted', _this.table);
+			if(_this.jorm.log) console.info('Deleted', _this.table);
 			done && done(err, _this);
 		});
 		

@@ -26,7 +26,9 @@ describe('core', function () {
 			}
 		};
 
-		jorm = require('../src/jorm').create({connectionString: connectionString, logSQL: true, log: false}, config);
+		var jormModule = require('../src/jorm');
+		console.log(jormModule);
+		jorm = new jormModule({connectionString: connectionString, logSQL: true, log: false}, config);
 
 		done();
 	});
@@ -35,8 +37,7 @@ describe('core', function () {
 		jorm.should.have.property('Parent1');
 	});	
 
-	it('Parent1 должен содержать методы initInternal, internalWhereProcess, getSelectFields, get', function () {
-		jorm.Parent1.should.have.property('initInternal');
+	it('Parent1 должен содержать методы internalWhereProcess, getSelectFields, get', function () {
 		jorm.Parent1.should.have.property('internalWhereProcess');
 		jorm.Parent1.should.have.property('getSelectFields');
 		jorm.Parent1.should.have.property('get');
