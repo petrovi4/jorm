@@ -41,7 +41,7 @@ module.exports = function(jormParams, config) {
 		_this[ essenceMeta ].getPublicArr = function(arr){
 			var result = [];
 			for(var i=0; i<arr.length; i++){
-				var publicEssence = arr[i].getPublic()
+				var publicEssence = arr[i].getPublic();
 				result.push(publicEssence);
 			}
 			return result;

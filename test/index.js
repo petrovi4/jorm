@@ -60,6 +60,21 @@ describe('core', function () {
 		});
 	});	
 
+	it('SELECT с поиском', function (done) {
+		jorm.Parent1.get({search: {columns: ['name', 'name'], value: '%e%'}}, function (err, parents1) {
+			should.not.exist(err);
+
+			parents1.length.should.be.equal(1);
+
+			parent1 = parents1[0];
+
+			parent1.id.should.equal(1);
+			parent1.name.should.equal('test1');
+
+			done();
+		});
+	});	
+
 	it('Обновление', function (done) {
 		parent1.name = 'test2';
 		parent1.save(function (err, newParent1) {
@@ -122,7 +137,7 @@ describe('core', function () {
 
 
 	it('SELECT + JOIN PARENT', function (done) {
-		jorm.Child1.get({id: 1, join: ['Parent1']}, function (err, childs1) {
+		jorm.Child1.get({id: 1, join: ['Parent1'], limit: 2}, function (err, childs1) {
 			should.not.exist(err);
 
 			childs1.length.should.be.equal(1);

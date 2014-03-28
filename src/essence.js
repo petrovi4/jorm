@@ -2,7 +2,7 @@ var pg = require('pg');
 var extend = require('extend');
 
 var Essence = function(meta, params, joinParams) {	
-	// console.log('Create new', meta.name, params);
+	// console.log('Create new', meta, params);
 	extend(this, meta);
 
 	for(var property in meta.fields){
@@ -11,7 +11,8 @@ var Essence = function(meta, params, joinParams) {
 
 	for(var joinIndex in joinParams){
 		var join = this.getJoinParams( joinParams[joinIndex] );
-		this[join.essence.name] = [ new Essence(join.essence, params) ];
+		var joineEssence = new Essence(join.essence, params);
+		this[join.essence.name] = [ joineEssence ];
 	}
 
 	if(this.init) this.init(params);
@@ -21,9 +22,12 @@ Essence.internalWhereProcess = function(meta, param, value, index) {
 	var whereClause = '';
 	var whereParams = [];
 
+	// console.log('Process param', param, value);
+
 	if( value == undefined ) return;
 	if( param.indexOf('order by') != -1 ) return;
-	if( param.indexOf('join') != -1 ) return;
+	if( param == 'join' ) return;
+	if( param =='limit' ) return;
 
 	if(value instanceof Array){
 		whereClause += param + ' in (';
@@ -37,6 +41,19 @@ Essence.internalWhereProcess = function(meta, param, value, index) {
 	else if(value.comparsion && value.value){
 		whereClause += '"' + param + '" ' + value.comparsion + ' $' + index.toString();
 		whereParams.push(value.value);
+		index++;
+	}
+	else if(param == 'search' && value.columns && value.value){
+		for(var i=0; i < value.columns.length; i++){
+			whereClause += (whereClause.length == 0 ? '(' : ' OR ') + 'LOWER("' + value.columns[i] + '") LIKE $' + index.toString();
+		}
+		whereClause += ')';
+		whereParams.push(value.value);
+		index++;
+	}
+	else if(param.indexOf('.') != -1){
+		whereClause += param + ' = $' + index.toString();
+		whereParams.push(value);
 		index++;
 	}
 	else{
@@ -80,6 +97,7 @@ Essence.get = function(params, done) {
 	var whereClause = '';
 	var whereParams = [];
 	var orderClause = '';
+	var limitClause = '';
 
 	var joinsCache = {};
 
@@ -96,16 +114,15 @@ Essence.get = function(params, done) {
 
 	if(this.where){
 		var where = this.where(params);
+
 		if(where){
-			whereClause = where.whereClause;
-			whereParams = where.whereParams;
+			whereClause = (where.whereClause || '');
+			whereParams = (where.whereParams || []);
 		}
 	}
 
 	if( whereClause.length == 0 && whereParams.length == 0 ){
 		var index = 1;
-		whereClause = '';
-		whereParams = [];
 
 		for(var whereParam in params){
 			var where = null;
@@ -141,11 +158,28 @@ Essence.get = function(params, done) {
 		}
 	}
 
+	if(this.limit){
+		limitClause = this.limit(params);
+	}
+	else{
+		for(var limitParam in params){
+			if( params[limitParam] == undefined ) continue;
+
+			if(limitParam == 'limit'){
+				limitClause = ' limit ' + parseInt(params[limitParam]);
+			}
+		}
+	}
+
+
+
 	var _this = this;
 	this.jorm.dbLabmda(function(err, client, doneDB) {
 		if(err){ console.error(err); doneDB(); done('DB_ERROR'); return; }
 
-		var queryString = 'SELECT '+ selectFields +' FROM "' + _this.table + '"' + tablesJoin + (whereJoinClause.length > 0 || whereClause.length > 0 ? ' WHERE' : '') + whereJoinClause + (whereJoinClause.length > 0 ? ' AND' : '') + (whereClause || '') + orderClause;
+		var whereClauseConcat = (whereJoinClause.length > 0 || whereClause.length > 0 ? ' WHERE' : '') + whereJoinClause + (whereJoinClause.length > 0 && whereClause.length > 0 ? ' AND' : '') + whereClause;
+
+		var queryString = 'SELECT '+ selectFields +' FROM "' + _this.table + '"' + tablesJoin + whereClauseConcat + orderClause + limitClause;
 
 		if(_this.jorm.logSQL) console.log(queryString, whereParams);
 
@@ -269,5 +303,31 @@ Essence.prototype.delete = function(done) {
 		
 	});
 };
+
+Essence.prototype.getPublicInternal = function() {
+	var publicThis = {};
+	for(var property in this.fields){
+		publicThis[property] = this[property];
+	}
+
+	for(var property in this){
+		if(
+				(this[property] instanceof Array && this[property].length > 0 && this[property][0].getPublic) ||
+				(this[property] instanceof Array && this[property].length == 0)
+		) {
+			var joinedEssences = [];
+			for(var j=0; j< this[property].length; j++){
+				joinedEssences.push(this[property][j].getPublic());
+			}
+			publicThis[property] = joinedEssences;
+		}
+	}
+
+	return publicThis;
+};
+
+Essence.prototype.getPublic = function () {
+	return this.getPublicInternal();
+}
 
 module.exports = Essence;
