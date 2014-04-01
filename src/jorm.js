@@ -38,10 +38,10 @@ module.exports = function(jormParams, config) {
 		// 	essence.get( this, params, done );
 		// };
 
-		_this[ essenceMeta ].getPublicArr = function(arr){
+		_this[ essenceMeta ].getPublicArr = function(arr, fields){
 			var result = [];
 			for(var i=0; i<arr.length; i++){
-				var publicEssence = arr[i].getPublic();
+				var publicEssence = arr[i].getPublic(fields);
 				result.push(publicEssence);
 			}
 			return result;

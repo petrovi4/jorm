@@ -17,12 +17,12 @@ var config = {
 	User: {
 		table: 'user',
 		fields: {
-			id 						: {},
-			created				: {},
-			name					: {},
-			hpassword			: {},
-			email					: {},
-			phone					: {}
+			id					: {},
+			created			: {},
+			name				: {},
+			hpassword		: {},
+			email				: {},
+			phone				: {}
 		}
 	}
 };
@@ -50,8 +50,11 @@ newUser.save(function(err, user){
 ```
 
 ## Update
+
 essence.id == null -> make insert
+
 essence.id != null -> make update
+
 ```javascript
 user.name = newName;
 user.save(function(err, user){

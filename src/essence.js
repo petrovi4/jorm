@@ -75,13 +75,14 @@ Essence.getSelectFields = function() {
 Essence.getJoinParams = function(join) {
 	var joinObj = (typeof join == 'string') ? {
 		essence: this.jorm[join],
-		field: this.jorm[join].table + '_id',
-		joinField: 'id'
+		// field: this.jorm[join].table + '_id',
+		// joinField: 'id'
 	} : join;
 
 	if(typeof joinObj.essence == 'string') joinObj.essence = this.jorm[joinObj.essence];
 	if(!joinObj.field) joinObj.field = joinObj.essence.table + '_id';
 	if(!joinObj.joinField) joinObj.joinField = 'id';
+	if(!joinObj.joinClause) joinObj.joinClause = 'LEFT OUTER JOIN';
 
 	return joinObj;
 }
@@ -104,11 +105,11 @@ Essence.get = function(params, done) {
 	for(var joinIndex in params.join){
 		var join = this.getJoinParams(params.join[joinIndex]);
 
-		tablesJoin += ', "' + join.essence.table + '"';
+		tablesJoin += ' ' + join.joinClause + ' "' + join.essence.table + '"';
+		tablesJoin += ' ON "' + this.table + '"."' + join.field + '" = "' + join.essence.table + '"."' + join.joinField + '"';
+
 		selectFields += ', ' + join.essence.getSelectFields();
 
-		whereJoinClause += (whereJoinClause.length == 0 ? '': ' AND') + ' "' + this.table + '"."' + join.field + '" = "' + join.essence.table + '"."' + join.joinField + '"';
-		
 		joinsCache[join.essence.name] = join;
 	}
 
@@ -126,16 +127,18 @@ Essence.get = function(params, done) {
 
 		for(var whereParam in params){
 			var where = null;
+			console.log('check where');
 			if(this.whereParam){
-				where = this.whereParam(params);
+				where = this.whereParam(whereParam, params[whereParam], index);
 			}
+			console.log('where', where);
 
 			if(!where){
 				where = Essence.internalWhereProcess(this, whereParam, params[whereParam], index);
 			}
 
 			if(where){
-				whereClause += ((whereClause && whereClause.length > 0) ? ' AND' : '') + ' ' + where.whereClause;
+				whereClause += ((whereClause && whereClause.length > 0) ? ' AND' : '') + ' (' + where.whereClause + ')';
 				whereParams = whereParams.concat(where.whereParams);
 				index = where.index || (index + 1);
 			}
@@ -193,7 +196,7 @@ Essence.get = function(params, done) {
 			for(var i=0; i<result.rows.length; i++){
 				var newEssence = new Essence(_this, result.rows[i], params.join);
 
-				// Ищем, может из за джойна этот объект уже создавался
+				// Ищем, может из-за джойна этот объект уже создавался
 				for(var j=0; j<essences.length; j++){
 					if(essences[j].id && newEssence.id && essences[j].id == newEssence.id){ // Такой объект уже есть
 
@@ -304,7 +307,7 @@ Essence.prototype.delete = function(done) {
 	});
 };
 
-Essence.prototype.getPublicInternal = function() {
+Essence.prototype.getPublicInternal = function(fields) {
 	var publicThis = {};
 	for(var property in this.fields){
 		publicThis[property] = this[property];
@@ -323,11 +326,17 @@ Essence.prototype.getPublicInternal = function() {
 		}
 	}
 
+	fields = fields || [];
+	if(typeof fields == 'string') fields = [fields];
+	for(var i=0; i<fields.length; i++){
+		publicThis[fields[i]] = this[fields[i]];
+	}
+
 	return publicThis;
 };
 
-Essence.prototype.getPublic = function () {
-	return this.getPublicInternal();
+Essence.prototype.getPublic = function (fields) {
+	return this.getPublicInternal(fields);
 }
 
 module.exports = Essence;
