@@ -1,75 +1,134 @@
 var pg = require('pg');
 var extend = require('extend');
+var uuid = require('node-uuid');
 
-var Essence = function(meta, params, joinParams) {	
-	// console.log('Create new', meta, params);
+var Essence = function(meta, params, joinParams, prefix) {	
+	// console.log('Create new', meta, '\n', params, '\n', joinParams, '\n', prefix);
 	extend(this, meta);
 
+	var inited = false;
 	for(var property in meta.fields){
-		this[property] = params[property] ? params[property] : params[meta.table + '.' + property];
+		if(params[property] != null && params[property] != undefined){
+			this[property] = params[property];	
+		}
+		else if(params[prefix + '.' + property] != null && params[prefix + '.' + property] != undefined){
+			this[property] = params[prefix + '.' + property];
+		}
+		else if(!prefix){ // если есть prefix - значит инициализируем сджойненую таблицу, а значит оригинальную таблицу не просматриваем
+			this[property] = params[meta.table + '.' + property];
+		}
+		inited |= !!this[property];
+	}
+	if(!inited){
+		throw new Error('NOT_INITIALIZED');
 	}
 
 	for(var joinIndex in joinParams){
 		var join = this.getJoinParams( joinParams[joinIndex] );
-		var joineEssence = new Essence(join.essence, params);
-		this[join.essence.name] = [ joineEssence ];
+		try{
+			var joineEssence = new Essence(join.essence, params, null, join.prefix);
+			this[join.essence.name] = [ joineEssence ];
+		}
+		catch(err){ if(this.jorm.log){ console.error(err); } }
 	}
 
 	if(this.init) this.init(params);
 }
 
-Essence.internalWhereProcess = function(meta, param, value, index) {
+
+Essence.whereParamInternal = function(prefix, param, value, index) {
 	var whereClause = '';
 	var whereParams = [];
 
-	// console.log('Process param', param, value);
+	// console.log('Process param', prefix, param, value, index);
 
-	if( value == undefined ) return;
-	if( param.indexOf('order by') != -1 ) return;
+	if( value == undefined && value != null ) return;
+	if( param.toString().indexOf('order by') != -1 ) return;
 	if( param == 'join' ) return;
 	if( param =='limit' ) return;
+	if( param =='offset' ) return;
 
-	if(value instanceof Array){
-		whereClause += param + ' in (';
+	if(value == null){
+		whereClause += '"' + prefix + '"."' + param + '" is null';
+	}
+	else if(value instanceof Array){
+		whereClause += '"' + prefix + '"."' + param + '" in (';
 		for(var arrayIndex = 0; arrayIndex < value.length; arrayIndex++){
 			whereClause += (arrayIndex == 0 ? '' : ', ') + '$' + index.toString();
-			whereParams.push(value[arrayIndex]);
+			whereParams.push( value[arrayIndex].id ? value[arrayIndex].id : value[arrayIndex]);
 			index++;
 		}
 		whereClause += ')';
 	}
-	else if(value.comparsion && value.value){
-		whereClause += '"' + param + '" ' + value.comparsion + ' $' + index.toString();
+	else if(value.comparsion){
+		whereClause += '"' + prefix + '"."' + param + '" ' + value.comparsion + ' $' + index.toString();
 		whereParams.push(value.value);
 		index++;
 	}
 	else if(param == 'search' && value.columns && value.value){
 		for(var i=0; i < value.columns.length; i++){
-			whereClause += (whereClause.length == 0 ? '(' : ' OR ') + 'LOWER("' + value.columns[i] + '") LIKE $' + index.toString();
+			whereClause += (whereClause.length == 0 ? '(' : ' OR ') + 'LOWER("' + prefix + '"."' + value.columns[i] + '") LIKE $' + index.toString();
 		}
 		whereClause += ')';
 		whereParams.push(value.value);
 		index++;
 	}
-	else if(param.indexOf('.') != -1){
+	else if(param.toString().indexOf('.') != -1){
 		whereClause += param + ' = $' + index.toString();
 		whereParams.push(value);
 		index++;
 	}
 	else{
-		whereClause += '"' + meta.table + '"."' + param + '" = $' + index.toString();
+		whereClause += '"' + prefix + '"."' + param + '" = $' + index.toString();
 		whereParams.push(value);
 		index++;
 	}
 	return {whereClause: whereClause, whereParams: whereParams, index: index};
 }
+Essence.whereParam = function(prefix, param, value, index) {
+	return this.whereParamInternal(prefix, param, value, index);
+}
 
-Essence.getSelectFields = function() {
+
+Essence.whereInternal = function(prevWhere, prefix, params) {
+	// console.log('Where internal', prevWhere, this.table, prefix, params);
+
+	for(var whereParam in params){
+		var where = null;
+		if(this.whereParam){
+			where = this.whereParam(prefix, whereParam, params[whereParam], prevWhere.index);
+		}
+
+		if(!where){
+			where = this.whereParam( prefix, whereParam, params[whereParam], prevWhere.index);
+		}
+
+		if(where){
+			prevWhere.whereClause += (prevWhere.whereClause.length > 0 ? ' AND' : '') + ' (' + where.whereClause + ')';
+			prevWhere.whereParams = prevWhere.whereParams.concat(where.whereParams);
+			prevWhere.index = where.index || (prevWhere.index + 1);
+		}
+	}
+
+	return prevWhere;
+}
+Essence.where = function(prevWhere, prefix, params) {
+	return this.whereInternal(prevWhere, prefix, params);
+}
+
+
+Essence.selectFieldsInternal = function(params, prefix) {
+	// console.log('params, prefix', params, prefix);
+
+	prefix = prefix || this.table;
 	var selectFields = '';
 	for(var property in this.fields){
-		selectFields += (selectFields.length > 0 ? ', ' : '') + '"' + this.table + '"."' + property + '" as "' + this.table + '.' + property + '"';
+		selectFields += (selectFields.length > 0 ? ', ' : '') + '"' + prefix + '"."' + property + '" as "' + prefix + '.' + property + '"';
 	}
 	return selectFields;
+}
+Essence.selectFields = function(params, prefix) {
+	return this.selectFieldsInternal(params, prefix);
 }
 
 Essence.getJoinParams = function(join) {
@@ -80,83 +139,65 @@ Essence.getJoinParams = function(join) {
 	} : join;
 
 	if(typeof joinObj.essence == 'string') joinObj.essence = this.jorm[joinObj.essence];
+
 	if(!joinObj.field) joinObj.field = joinObj.essence.table + '_id';
+	if(typeof joinObj.field == 'string') joinObj.field = [joinObj.field];
+
 	if(!joinObj.joinField) joinObj.joinField = 'id';
+	if(typeof joinObj.joinField == 'string') joinObj.joinField = [joinObj.joinField];
+
 	if(!joinObj.joinClause) joinObj.joinClause = 'LEFT OUTER JOIN';
+	if(!joinObj.prefix) joinObj.prefix = 'j' + uuid.v4().split('-')[0];
 
 	return joinObj;
 }
 
+
 Essence.get = function(params, done) {
 	if(this.jorm.log) console.log('Start get', params);	
 
-	var selectFields = this.getSelectFields();
+	var selectFields = this.selectFields(params);
 	var tablesJoin = '';
 
-	var whereJoinClause = '';
+	var where = {whereClause: '', whereParams: [], index: 1};
 
-	var whereClause = '';
-	var whereParams = [];
 	var orderClause = '';
 	var limitClause = '';
+	var offsetClause = '';
 
 	var joinsCache = {};
 
 	for(var joinIndex in params.join){
-		var join = this.getJoinParams(params.join[joinIndex]);
+		var join = params.join[joinIndex] = this.getJoinParams(params.join[joinIndex]);
 
-		tablesJoin += ' ' + join.joinClause + ' "' + join.essence.table + '"';
-		tablesJoin += ' ON "' + this.table + '"."' + join.field + '" = "' + join.essence.table + '"."' + join.joinField + '"';
+		tablesJoin += ' ' + join.joinClause + ' "' + join.essence.table + '" as "' + join.prefix + '"';
+		tablesJoin += ' ON (';
+		for(var i=0; i<join.field.length; i++){
+			tablesJoin += (i==0?'':' AND ') + '"' + this.table + '"."' + join.field[i] + '" = "' + join.prefix + '"."' + join.joinField[i] + '"';
+		}
+		tablesJoin += ')';
 
-		selectFields += ', ' + join.essence.getSelectFields();
+		selectFields += ', ' + join.essence.selectFields(params, join.prefix);
+
+		where = join.essence.where(where, join.prefix, join.where);
 
 		joinsCache[join.essence.name] = join;
 	}
 
-	if(this.where){
-		var where = this.where(params);
-
-		if(where){
-			whereClause = (where.whereClause || '');
-			whereParams = (where.whereParams || []);
-		}
-	}
-
-	if( whereClause.length == 0 && whereParams.length == 0 ){
-		var index = 1;
-
-		for(var whereParam in params){
-			var where = null;
-			console.log('check where');
-			if(this.whereParam){
-				where = this.whereParam(whereParam, params[whereParam], index);
-			}
-			console.log('where', where);
-
-			if(!where){
-				where = Essence.internalWhereProcess(this, whereParam, params[whereParam], index);
-			}
-
-			if(where){
-				whereClause += ((whereClause && whereClause.length > 0) ? ' AND' : '') + ' (' + where.whereClause + ')';
-				whereParams = whereParams.concat(where.whereParams);
-				index = where.index || (index + 1);
-			}
-		}	
-	}
+	where = this.where(where, this.table, params);
 
 	if(this.order){
 		orderClause = this.order(params);
 	}
-	else{
-		for(var whereParam in params){
-			if( params[whereParam] == undefined ) continue;
+	if(!orderClause){
+		for(var orderParam in params){
+			if( params[orderParam] == undefined ) continue;
 
-			if(whereParam == 'order by asc'){
-				orderClause = ' order by "' + params[whereParam] + '" asc';
+			if(orderParam == 'order by asc'){
+				orderClause = ' order by "' +  this.table + '"."' + params[orderParam] + '" asc';
 			}
-			else if(whereParam == 'order by desc'){
-				orderClause = ' order by "' + params[whereParam] + '" desc';
+			else if(orderParam == 'order by desc'){
+				orderClause = ' order by "' +  this.table + '"."' + params[orderParam] + '" desc';
 			}
 		}
 	}
@@ -174,19 +215,30 @@ Essence.get = function(params, done) {
 		}
 	}
 
+	if(this.offset){
+		offsetClause = this.offset(params);
+	}
+	else{
+		for(var offsetParam in params){
+			if( params[offsetParam] == undefined ) continue;
 
+			if(offsetParam == 'offset'){
+				offsetClause = ' offset ' + parseInt(params[offsetParam]);
+			}
+		}
+	}
 
 	var _this = this;
 	this.jorm.dbLabmda(function(err, client, doneDB) {
 		if(err){ console.error(err); doneDB(); done('DB_ERROR'); return; }
 
-		var whereClauseConcat = (whereJoinClause.length > 0 || whereClause.length > 0 ? ' WHERE' : '') + whereJoinClause + (whereJoinClause.length > 0 && whereClause.length > 0 ? ' AND' : '') + whereClause;
+		var whereClauseConcat = (where.whereClause.length > 0 ? ' WHERE ' : '') + where.whereClause;
 
-		var queryString = 'SELECT '+ selectFields +' FROM "' + _this.table + '"' + tablesJoin + whereClauseConcat + orderClause + limitClause;
+		var queryString = 'SELECT '+ selectFields +' FROM "' + _this.table + '"' + tablesJoin + whereClauseConcat + orderClause + limitClause + offsetClause;
 
-		if(_this.jorm.logSQL) console.log(queryString, whereParams);
+		if(_this.jorm.logSQL) console.log(queryString, where.whereParams);
 
-		client.query(queryString, whereParams, function(err, result) {
+		client.query(queryString, where.whereParams, function(err, result) {
 			doneDB();
 			if(err){ console.error('Cant select\n', queryString, '\n' + err); done('DB_ERROR'); return; }
 
@@ -200,8 +252,10 @@ Essence.get = function(params, done) {
 				for(var j=0; j<essences.length; j++){
 					if(essences[j].id && newEssence.id && essences[j].id == newEssence.id){ // Такой объект уже есть
 
-						for(var join in joinsCache){
-							essences[j][joinsCache[join].essence.name].push( newEssence[joinsCache[join].essence.name][0] );
+						for(var joinIndex in params.join){ // Все сджойненые объекты newEssence добавляем в найденный essences[j]
+							for(var joinedObjectIndex in newEssence[ params.join[joinIndex].essence.name ]){ // Все сджойненные объекты из newEssence одного типа
+								essences[j][params.join[joinIndex].essence.name].push( newEssence[ params.join[joinIndex].essence.name ][joinedObjectIndex] )
+							}
 						}
 
 						newEssence = null; // Чтобы не добавлять в результирующую коллекцию
@@ -307,6 +361,7 @@ Essence.prototype.delete = function(done) {
 	});
 };
 
+
 Essence.prototype.getPublicInternal = function(fields) {
 	var publicThis = {};
 	for(var property in this.fields){
@@ -334,7 +389,6 @@ Essence.prototype.getPublicInternal = function(fields) {
 
 	return publicThis;
 };
-
 Essence.prototype.getPublic = function (fields) {
 	return this.getPublicInternal(fields);
 }

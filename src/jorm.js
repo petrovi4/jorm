@@ -22,10 +22,10 @@ module.exports = function(jormParams, config) {
 		});
 	};
 
-	extend(this, config);
+	for(var essenceMeta in config){
+		console.log('essenceMeta', essenceMeta);
 
-	for(var essenceMeta in this){
-		extend( _this[ essenceMeta ], essence );
+		_this[ essenceMeta ] = extend( {}, essence, config[ essenceMeta ] );
 
 		_this[ essenceMeta ].name = essenceMeta;
 		_this[ essenceMeta ].jorm = _this;
@@ -33,10 +33,6 @@ module.exports = function(jormParams, config) {
 		_this[ essenceMeta ].create = function (params) {
 			return new essence(this, params || {});
 		};
-
-		// this[ essenceMeta ].get = function (params, done) {
-		// 	essence.get( this, params, done );
-		// };
 
 		_this[ essenceMeta ].getPublicArr = function(arr, fields){
 			var result = [];
