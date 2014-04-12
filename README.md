@@ -170,7 +170,7 @@ var userModel = {
 	},
 	init: function (params) {
 		if(params.password){
-			this.hpassword = this.getHPassword(this.email, params.password);
+			this.hpassword = this.getHPassword(this.email, params.password, 'salt_example');
 		}
 	},
 	getHPassword: function (login, password, salt) {
