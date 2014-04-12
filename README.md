@@ -18,9 +18,9 @@ var config = {
 		table: 'user',
 		fields: {
 			id					: {},
-			created			: {},
+			created				: {},
 			name				: {},
-			hpassword		: {},
+			hpassword			: {},
 			email				: {},
 			phone				: {}
 		}
@@ -154,19 +154,11 @@ var userModel = {
 	table: 'user',
 	fields:{
 		id 							: {},
-		created					: {},
-		updated					: {},
 		email						: {},
-		hpassword				: {},
+		hpassword					: {},
 		name						: {},
-		surname					: {},
-		birthdate				: {},
-		phone						: {},
-		gender					: {},
-		avatar					: {},
-		language				: {},
-		background_id		: {},
-		status					: {}
+		surname						: {},
+		birthdate					: {},
 	},
 	init: function (params) {
 		if(params.password){
