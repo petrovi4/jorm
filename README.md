@@ -100,15 +100,20 @@ jorm.User.get(params, function(err, users) {
 })
 ```
 
-### Search with 'like'
+### Search with 'like', 'in' clause and custom comparsion
 
 ```javascript
-jorm.User.get({search: {columns: ['name', 'surname'], value: '%'+req.param('search').toLowerCase()+'%'} }, function(err, users){
+var params = {
+	search: {columns: ['name', 'surname'], 
+	value: '%'+req.param('search').toLowerCase()+'%'},
+	field_for_in_clause: [1, 2, 3],
+	age: {comparsion: '>', value: 18}
+}
+jorm.User.get(params, function(err, users){
 	if(err){ console.log(err); res.send({errCode: 'INTERNAL_ERROR'}); return; }
 	res.send( jorm.User.getPublicArr(users) );
 });
 ```
-
 
 ### Join essences
 
@@ -134,3 +139,60 @@ jorm.Post.get(params, function(err, posts){
 
 In this example table "post" has field user_id, and table user joined by field id.
 Table "comment" joining with custom join configuration.
+
+## Defining and overriding methods in model
+
+In this example model 'user':
+- has additional method getHPassword
+- override default method 'getPublic'
+- override default initialization method 'init'
+- override default method to get param for 'where' clause 
+- override fields for 'select' clause
+
+```javascript
+var userModel = {
+	table: 'user',
+	fields:{
+		id 							: {},
+		created					: {},
+		updated					: {},
+		email						: {},
+		hpassword				: {},
+		name						: {},
+		surname					: {},
+		birthdate				: {},
+		phone						: {},
+		gender					: {},
+		avatar					: {},
+		language				: {},
+		background_id		: {},
+		status					: {}
+	},
+	init: function (params) {
+		if(params.password){
+			this.hpassword = this.getHPassword(this.email, params.password);
+		}
+	},
+	getHPassword: function (login, password, salt) {
+		var hpassword = crypto.createHash('sha1').update(login + password + salt).digest('hex');
+		return hpassword;
+	},
+	getPublic: function(){
+		var publicDto = this.getPublicInternal();
+		delete publicDto.hpassword;
+		return publicDto;
+	},
+	whereParam: function(prefix, param, value, index) {
+		if(param != 'addCommentsCount'){
+			return this.whereParamInternal(prefix, param, value, index);
+		}
+	},
+	selectFields: function(params, prefix) {
+		var selectFields = this.selectFieldsInternal(params, prefix);
+		if(params.addCommentsCount){
+			selectFields += ', (select COUNT(*) from comment where comment.post_id = post.id) as commentsCount';
+		}
+		return selectFields;
+	}
+}
+```
