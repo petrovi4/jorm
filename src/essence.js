@@ -1,7 +1,15 @@
 var pg = require('pg');
 var extend = require('extend');
 var uuid = require('node-uuid');
+var crypto = require('crypto');
 
+/*
+ var crypto = require('crypto')
+  , shasum = crypto.createHash('sha1');
+shasum.update("foo");
+console.log(shasum.digest('hex'));
+ * 
+ */
 var Essence = function(meta, params, joinParams, prefix) {	
 	// console.log('Create new', meta, '\n', params, '\n', joinParams, '\n', prefix);
 	extend(this, meta);
@@ -31,7 +39,7 @@ var Essence = function(meta, params, joinParams, prefix) {
 		}
 		catch(err){ if(this.jorm.log){ console.error(err); } }
 	}
-
+        
 	if(this.init) this.init(params);
 }
 
@@ -239,15 +247,11 @@ Essence.get = function(params, done) {
 
 		if(_this.jorm.logSQL) console.log(queryString, where.whereParams);
 
-		client.query(queryString, where.whereParams, function(err, result) {
-			doneDB();
-			if(err){ console.error('Cant select\n', queryString, '\n' + err); done('DB_ERROR'); return; }
-
+		function buildEssences(list) {
 			var essences = [];
-
-			// По всем строком из результата SQL запроса
-			for(var i=0; i<result.rows.length; i++){
-				var newEssence = new Essence(_this, result.rows[i], params.join);
+			
+			for(var i=0; i<list.length; i++){
+				var newEssence = new Essence(_this, list[i], params.join);
 
 				// Ищем, может из-за джойна этот объект уже создавался
 				for(var j=0; j<essences.length; j++){
@@ -268,6 +272,16 @@ Essence.get = function(params, done) {
 					essences.push( newEssence );	
 				}
 			}
+			
+			return essences;
+		}
+		
+		client.query(queryString, where.whereParams, function(err, result) {
+			doneDB();
+			if(err){ console.error('Cant select\n', queryString, '\n' + err); done('DB_ERROR'); return; }
+			
+			// По всем строком из результата SQL запроса
+			var essences = buildEssences(result.rows);
 
 			if(_this.jorm.log) console.info('Getted '+ _this.table, essences.length);	
 
