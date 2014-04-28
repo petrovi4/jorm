@@ -3,13 +3,6 @@ var extend = require('extend');
 var uuid = require('node-uuid');
 var crypto = require('crypto');
 
-/*
- var crypto = require('crypto')
-  , shasum = crypto.createHash('sha1');
-shasum.update("foo");
-console.log(shasum.digest('hex'));
- * 
- */
 var Essence = function(meta, params, joinParams, prefix) {	
 	// console.log('Create new', meta, '\n', params, '\n', joinParams, '\n', prefix);
 	extend(this, meta);
@@ -247,6 +240,7 @@ Essence.get = function(params, done) {
 
 		if(_this.jorm.logSQL) console.log(queryString, where.whereParams);
 
+		// <<< helpers stuff
 		function buildEssences(list) {
 			var essences = [];
 			
@@ -276,18 +270,56 @@ Essence.get = function(params, done) {
 			return essences;
 		}
 		
-		client.query(queryString, where.whereParams, function(err, result) {
-			doneDB();
-			if(err){ console.error('Cant select\n', queryString, '\n' + err); done('DB_ERROR'); return; }
-			
-			// По всем строком из результата SQL запроса
-			var essences = buildEssences(result.rows);
+		function fetchFromDb(queryString, params, returning) {
+			client.query(queryString, params, function(err, result) {
+				doneDB();
+				if(err){ console.error('Cant select\n', queryString, '\n' + err); done('DB_ERROR'); return; }
+				
+				returning(result.rows);
+			});
+		}
+		// >>> helpers stuff
+		
+		if (!this.jorm.useCache) {
+			//Usual and simple way
+			fetchFromDb(queryString, where.whereParams, function (rows) {
+				var essences = buildEssences(rows);
+				if(_this.jorm.log) console.info('Getted '+ _this.table, essences.length);	
 
-			if(_this.jorm.log) console.info('Getted '+ _this.table, essences.length);	
+				done && done(err, essences);
+			});
+		} else {
+			_this.getCacheKey(queryString, where.whereParams);
+			//this.jorm.memcached.get('foo', function (err, data) {
+			//console.log(data);
+		  //});
 
-			done && done(err, essences);
-		});
+		}
+		
 	});
+}
+
+
+Essence.getCacheKey = function (query, params) {
+	function attachTagsMark(tagsArr, result, callback) {
+		if (0)
+				calback(result);
+			last = tagsArr.arrPop 
+			
+		memcache.get(function() {
+			if (getresult == undefined) {
+				createNew();
+			} else
+				result += getresult;
+			
+			attachTagsMark(tagsArr, result, callback);
+		});
+	}
+	
+	var shasum = crypto.createHash('sha1');
+	shasum.update(query.toString() + params.toString());
+	console.log(shasum.digest('hex') + attachTagsMark(this.tags));
+
 }
 
 Essence.prototype.save = function(done) {
