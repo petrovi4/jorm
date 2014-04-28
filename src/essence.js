@@ -229,12 +229,13 @@ Essence.get = function(params, done) {
 	}
 
 	var _this = this;
+        var whereClauseConcat = (where.whereClause.length > 0 ? ' WHERE ' : '') + where.whereClause;
+        var queryString = 'SELECT '+ selectFields +' FROM "' + _this.table + '"' + tablesJoin + whereClauseConcat + orderClause + limitClause + offsetClause;
+        
+        //FIXME: insert caching here
+        
 	this.jorm.dbLabmda(function(err, client, doneDB) {
 		if(err){ console.error(err); doneDB(); done('DB_ERROR'); return; }
-
-		var whereClauseConcat = (where.whereClause.length > 0 ? ' WHERE ' : '') + where.whereClause;
-
-		var queryString = 'SELECT '+ selectFields +' FROM "' + _this.table + '"' + tablesJoin + whereClauseConcat + orderClause + limitClause + offsetClause;
 
 		if(_this.jorm.logSQL) console.log(queryString, where.whereParams);
 
@@ -328,7 +329,8 @@ Essence.prototype.save = function(done) {
 			var insertString = 'INSERT INTO "' + _this.table + '" (' + insertFields + ') VALUES (' + insertValues +') RETURNING id';
 
 			if(_this.jorm.logSQL) console.log(insertString, insertParams);
-		
+                        
+                        //FIXME: insert uncaching here
 			client.query(insertString, insertParams, function(err, result) {
 				doneDB();
 				if(err){ console.error('Cant insert\n', insertString, '\n'+err); done('DB_ERROR'); return; }
@@ -349,7 +351,8 @@ Essence.prototype.delete = function(done) {
 		if(err){ console.error(err); doneDB(); done('DB_ERROR'); return; }
 
 		if(_this.jorm.log) console.info('Start delete ', _this.table);
-
+                
+                //FIXME: insert uncaching here
 		client.query('DELETE FROM "' + _this.table + '" WHERE id = $1', [_this.id], function(err, result) {
 			doneDB();
 			if(err){ console.error('Cant delete ' + _this.table, err); done('DB_ERROR'); return; }
