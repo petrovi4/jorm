@@ -37,7 +37,7 @@ describe('Testing cache subsystem', function() {
 		jorm = new jormModule(
 			{
 				connectionString: connectionString,
-				logSQL: true,
+				logSQL: false,
 				log: true,
 				cache: new Memcached("127.0.0.1:11211")
 			},
@@ -47,7 +47,7 @@ describe('Testing cache subsystem', function() {
 		jorm.Parent1.get({id: 1}, function(err, parents1) {
 			if (err) { throw err; }
 			
-			//console.log(parents1);
+			console.log(parents1);
 			done();
 		});
 	});

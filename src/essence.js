@@ -2,6 +2,7 @@ var pg = require('pg');
 var extend = require('extend');
 var uuid = require('node-uuid');
 var crypto = require('crypto');
+var shasum = crypto.createHash('sha1');
 
 var Essence = function(meta, params, joinParams, prefix) {	
 	// console.log('Create new', meta, '\n', params, '\n', joinParams, '\n', prefix);
@@ -289,7 +290,29 @@ Essence.get = function(params, done) {
 				done && done(err, essences);
 			});
 		} else {
-			_this.getCacheKey(queryString, where.whereParams);
+			_this.getCacheKey(queryString, where.whereParams, function (index) {
+				_this.jorm.memcache.get(index, function (err, data) {
+					if (data != false) {
+						if (_this.jorm.log) {console.info('Getted from cache ' + data)}
+						done(err, buildEssences(data));
+					} else {
+						if (_this.jorm.log) {console.info('Cache is empty, fetching from db')}
+						
+						fetchFromDb(queryString, where.whereParams, function (rows) {
+							_this.jorm.memcache.set(index, rows, 60*60*24, function (err) {
+								if (err) {throw err;}
+								
+								var essences = buildEssences(rows);
+								if(_this.jorm.log) console.info('Getted '+ _this.table, essences.length);	
+
+								done && done(err, essences);
+							});
+						});
+					}
+				});
+				
+			}); 
+			
 			//this.jorm.memcached.get('foo', function (err, data) {
 			//console.log(data);
 		  //});
@@ -299,26 +322,44 @@ Essence.get = function(params, done) {
 	});
 }
 
-
-Essence.getCacheKey = function (query, params) {
+Essence.getCacheKey = function (query, params, callback) {
 	function attachTagsMark(tagsArr, result, callback) {
-		if (0)
-				calback(result);
-			last = tagsArr.arrPop 
+		
+		if (tagsArr == undefined || tagsArr.length == 0) {
+				callback(result); return;
+		}
+		
+		last = tagsArr.pop(); 
+		
+		this.jorm.memcache.get(last, function(err, getResult) {
+			if (err) {console.log(err);}
 			
-		memcache.get(function() {
-			if (getresult == undefined) {
-				createNew();
-			} else
-				result += getresult;
-			
+			if (!getResult) {
+				createNew(last, result, tagsArr, callback);
+				return;
+			} else {
+				result += '_' + getResult ;
+				attachTagsMark(tagsArr, result, callback);
+			}
+		});
+	}
+	
+	function createNew(index, result, tagsArr, callback) {
+		var value = Math.floor((Math.random()*10000)); 
+		this.jorm.memcache.set(index, value, 60*60*24, function (err) {
+			if (err) {
+				throw err;
+			}
+			result += '_' + value;
 			attachTagsMark(tagsArr, result, callback);
 		});
 	}
 	
-	var shasum = crypto.createHash('sha1');
-	shasum.update(query.toString() + params.toString());
-	console.log(shasum.digest('hex') + attachTagsMark(this.tags));
+	attachTagsMark(
+		this.tags,
+		this.name + '_' + shasum.update(query.toString() + params.toString()).digest('hex'), 
+		callback
+	);
 
 }
 
