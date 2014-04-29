@@ -2,12 +2,11 @@ var pg = require('pg');
 var extend = require('extend');
 var uuid = require('node-uuid');
 var crypto = require('crypto');
-var shasum = crypto.createHash('sha1');
 
 var Essence = function(meta, params, joinParams, prefix) {	
-	// console.log('Create new', meta, '\n', params, '\n', joinParams, '\n', prefix);
+	//console.log('Create new', meta, '\n with params', params, '\nwith join params', joinParams, '\n and prefix', prefix);
 	extend(this, meta);
-
+	
 	var inited = false;
 	for(var property in meta.fields){
 		if(params[property] != null && params[property] != undefined){
@@ -348,19 +347,45 @@ Essence.getCacheKey = function (query, params, callback) {
 		});
 	}
 	
+	var shasum = crypto.createHash('sha1');
+	
 	attachTagsMark(
-		this.tags,
+		this.tags.slice(),
 		this.name + '_' + shasum.update(query.toString() + params.toString()).digest('hex'), 
 		callback
 	);
 
 }
 
-Essence.prototype.save = function(done) {
-	var _this = this;
-	console.log(_this);
+Essence.prototype.cacheDevalidate = function(tagArr, callback, callbackOfCallback, context) {
+	function devalidate(tagArr) {
+		if (tagArr == undefined || tagArr.length == 0) {
+			callback(callbackOfCallback, true, context);
+			return;
+		}
 
-	this.jorm.dbLabmda(function(err, client, doneDB) {
+		this.jorm.memcache.incr(tagArr.pop(), 1, function(err) {
+			if (err) {throw err;}
+			devalidate(tagArr);
+		});
+	}
+			
+	devalidate(tagArr);
+}
+
+Essence.prototype.save = function(done, cacheWasChecked, initialContext) {
+	var _this = (initialContext == undefined) ? this : initialContext;
+	
+	if (cacheWasChecked == undefined) {
+		if (!this.jorm.useCache) {
+			this.save(done, true);
+		} else {
+			this.cacheDevalidate(this.tags.slice(), this.save, done, _this);
+		}
+		return;
+	}
+	
+	_this.jorm.dbLabmda(function(err, client, doneDB) {
 		if(err){ console.error(err); doneDB(); done('DB_ERROR'); return; }
 
 		if(_this.id){ // update
@@ -410,8 +435,7 @@ Essence.prototype.save = function(done) {
 			var insertString = 'INSERT INTO "' + _this.table + '" (' + insertFields + ') VALUES (' + insertValues +') RETURNING id';
 
 			if(_this.jorm.logSQL) console.log(insertString, insertParams);
-                        
-                        //FIXME: insert uncaching here
+            
 			client.query(insertString, insertParams, function(err, result) {
 				doneDB();
 				if(err){ console.error('Cant insert\n', insertString, '\n'+err); done('DB_ERROR'); return; }
@@ -425,15 +449,23 @@ Essence.prototype.save = function(done) {
 	});
 };
 
-Essence.prototype.delete = function(done) {
-	var _this = this;
+Essence.prototype.delete = function(done, cacheWasChecked, initialContext) {
+	var _this = (initialContext == undefined) ? this : initialContext;
+	
+	if (cacheWasChecked == undefined) {
+		if (!this.jorm.useCache) {
+			this.delete(done, true);
+		} else {
+			this.cacheDevalidate(this.tags.slice(), this.delete, done, _this);
+		}
+		return;
+	}
 
-	this.jorm.dbLabmda(function(err, client, doneDB) {
+	_this.jorm.dbLabmda(function(err, client, doneDB) {
 		if(err){ console.error(err); doneDB(); done('DB_ERROR'); return; }
 
 		if(_this.jorm.log) console.info('Start delete ', _this.table);
-                
-                //FIXME: insert uncaching here
+        
 		client.query('DELETE FROM "' + _this.table + '" WHERE id = $1', [_this.id], function(err, result) {
 			doneDB();
 			if(err){ console.error('Cant delete ' + _this.table, err); done('DB_ERROR'); return; }
@@ -446,7 +478,7 @@ Essence.prototype.delete = function(done) {
 };
 
 
-Essence.prototype.getPublicInternal = function(fields) {
+Essence.prototype.getPublicInternal = function(fields, cacheWasChecked) {
 	var publicThis = {};
 	for(var property in this.fields){
 		publicThis[property] = this[property];
