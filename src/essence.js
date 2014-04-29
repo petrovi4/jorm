@@ -310,15 +310,8 @@ Essence.get = function(params, done) {
 						});
 					}
 				});
-				
-			}); 
-			
-			//this.jorm.memcached.get('foo', function (err, data) {
-			//console.log(data);
-		  //});
-
+			});
 		}
-		
 	});
 }
 
@@ -365,6 +358,7 @@ Essence.getCacheKey = function (query, params, callback) {
 
 Essence.prototype.save = function(done) {
 	var _this = this;
+	console.log(_this);
 
 	this.jorm.dbLabmda(function(err, client, doneDB) {
 		if(err){ console.error(err); doneDB(); done('DB_ERROR'); return; }
