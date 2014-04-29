@@ -478,7 +478,7 @@ Essence.prototype.delete = function(done, cacheWasChecked, initialContext) {
 };
 
 
-Essence.prototype.getPublicInternal = function(fields, cacheWasChecked) {
+Essence.prototype.getPublicInternal = function(fields) {
 	var publicThis = {};
 	for(var property in this.fields){
 		publicThis[property] = this[property];
