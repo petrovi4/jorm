@@ -292,6 +292,7 @@ Essence.get = function(params, done) {
 			_this.getCacheKey(queryString, where.whereParams, function (index) {
 				_this.jorm.memcache.get(index, function (err, data) {
 					if (data != false) {
+						doneDB();
 						if (_this.jorm.log) {console.info('Getted from cache ' + data)}
 						done(err, buildEssences(data));
 					} else {
