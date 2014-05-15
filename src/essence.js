@@ -12,9 +12,10 @@ var Essence = function(meta, params, joinParams, prefix) {
     for (var property in meta.fields)
         props.push(property);
 
-    if ((meta.extraFields != undefined) && (meta.extraFields.lenght > 0))
+    if (meta.extraFields != undefined)
         for (var extraProperty in meta.extraFields)
             props.push(extraProperty);
+    
 	for(var i = 0; i < props.length; i++){
         var property = props[i];
 		if(params[property] != null && params[property] != undefined){
