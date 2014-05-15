@@ -8,6 +8,7 @@ var Essence = function(meta, params, joinParams, prefix) {
 	extend(this, meta);
 	
 	var inited = false;
+	var props = [];
     for (var property in meta.fields)
         props.push(property);
 
