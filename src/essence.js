@@ -8,7 +8,15 @@ var Essence = function(meta, params, joinParams, prefix) {
 	extend(this, meta);
 	
 	var inited = false;
-	for(var property in meta.fields){
+	var props = [];
+    for (var property in meta.fields)
+        props.push(property);
+
+    if ((meta.extraFields != undefined) && (meta.extraFields.lenght > 0))
+        for (var extraProperty in meta.extraFields)
+            props.push(extraProperty);
+	for(var i = 0; i < props.length; i++){
+        var property = props[i];
 		if(params[property] != null && params[property] != undefined){
 			this[property] = params[property];	
 		}
