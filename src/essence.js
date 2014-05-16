@@ -37,7 +37,12 @@ var Essence = function(meta, params, joinParams, prefix) {
 		var join = this.getJoinParams( joinParams[joinIndex] );
 		try{
 			var joineEssence = new Essence(join.essence, params, null, join.prefix);
-			this[join.essence.name] = [ joineEssence ];
+            var fieldName =
+                join.fieldName
+                    ? joinFieldName
+                    : join.essence.name;
+
+			this[fieldName] = joineEssence;
 		}
 		catch(err){ if(this.jorm.log){ console.error(err); } }
 	}
