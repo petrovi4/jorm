@@ -266,9 +266,13 @@ Essence.get = function(params, done) {
 					if(essences[j].id && newEssence.id && essences[j].id == newEssence.id){ // Такой объект уже есть
 
 						for(var joinIndex in params.join){ // Все сджойненые объекты newEssence добавляем в найденный essences[j]
-							for(var joinedObjectIndex in newEssence[ params.join[joinIndex].essence.name ]){ // Все сджойненные объекты из newEssence одного типа
-								essences[j][params.join[joinIndex].essence.name].push( newEssence[ params.join[joinIndex].essence.name ][joinedObjectIndex] )
-							}
+                            var joinedName =
+                                params.join[joinIndex].fieldName
+                                    ? params.join[joinIndex].fieldName
+                                    : params.join[joinIndex].essence.name;
+
+                            for(var joinedObjectIndex in newEssence[ joinedName ]){ // Все сджойненные объекты из newEssence одного типа
+                                essences[j][joinedName].push( newEssence[ joinedName ][joinedObjectIndex] );
 						}
 
 						newEssence = null; // Чтобы не добавлять в результирующую коллекцию
