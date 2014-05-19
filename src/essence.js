@@ -37,7 +37,12 @@ var Essence = function(meta, params, joinParams, prefix) {
 		var join = this.getJoinParams( joinParams[joinIndex] );
 		try{
 			var joineEssence = new Essence(join.essence, params, null, join.prefix);
-			this[join.essence.name] = [ joineEssence ];
+            var fieldName =
+                join.fieldName
+                    ? join.fieldName
+                    : join.essence.name;
+
+			this[fieldName] = joineEssence;
 		}
 		catch(err){ if(this.jorm.log){ console.error(err); } }
 	}
@@ -261,9 +266,13 @@ Essence.get = function(params, done) {
 					if(essences[j].id && newEssence.id && essences[j].id == newEssence.id){ // Такой объект уже есть
 
 						for(var joinIndex in params.join){ // Все сджойненые объекты newEssence добавляем в найденный essences[j]
-							for(var joinedObjectIndex in newEssence[ params.join[joinIndex].essence.name ]){ // Все сджойненные объекты из newEssence одного типа
-								essences[j][params.join[joinIndex].essence.name].push( newEssence[ params.join[joinIndex].essence.name ][joinedObjectIndex] )
-							}
+                            var joinedName =
+                                params.join[joinIndex].fieldName
+                                    ? params.join[joinIndex].fieldName
+                                    : params.join[joinIndex].essence.name;
+
+                            for(var joinedObjectIndex in newEssence[ joinedName ]){ // Все сджойненные объекты из newEssence одного типа
+                                essences[j][joinedName].push( newEssence[ joinedName ][joinedObjectIndex] );
 						}
 
 						newEssence = null; // Чтобы не добавлять в результирующую коллекцию
@@ -503,7 +512,13 @@ Essence.prototype.getPublicInternal = function(fields) {
 			for(var j=0; j< this[property].length; j++){
 				joinedEssences.push(this[property][j].getPublic());
 			}
-			publicThis[property] = joinedEssences;
+            if (joinedEssences.length > 1)
+                publicThis[property] = joinedEssences;
+            else
+                if (joinedEssences.length == 1)
+                    publicThis[property] = joinedEssences[0];
+                else
+                    publicThis[property] = [];
 		}
 	}
 
