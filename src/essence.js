@@ -42,7 +42,7 @@ var Essence = function(meta, params, joinParams, prefix) {
                     ? join.fieldName
                     : join.essence.name;
 
-			this[fieldName] = joineEssence;
+			this[fieldName] = [joineEssence];
 		}
 		catch(err){ if(this.jorm.log){ console.error(err); } }
 	}
@@ -273,6 +273,7 @@ Essence.get = function(params, done) {
 
                             for(var joinedObjectIndex in newEssence[ joinedName ]){ // Все сджойненные объекты из newEssence одного типа
                                 essences[j][joinedName].push( newEssence[ joinedName ][joinedObjectIndex] );
+							}
 						}
 
 						newEssence = null; // Чтобы не добавлять в результирующую коллекцию
