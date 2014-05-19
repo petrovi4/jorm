@@ -39,7 +39,7 @@ var Essence = function(meta, params, joinParams, prefix) {
 			var joineEssence = new Essence(join.essence, params, null, join.prefix);
             var fieldName =
                 join.fieldName
-                    ? joinFieldName
+                    ? join.fieldName
                     : join.essence.name;
 
 			this[fieldName] = joineEssence;
@@ -508,7 +508,13 @@ Essence.prototype.getPublicInternal = function(fields) {
 			for(var j=0; j< this[property].length; j++){
 				joinedEssences.push(this[property][j].getPublic());
 			}
-			publicThis[property] = joinedEssences;
+            if (joinedEssences.length > 1)
+                publicThis[property] = joinedEssences;
+            else
+                if (joinedEssences.length == 1)
+                    publicThis[property] = joinedEssences[0];
+                else
+                    publicThis[property] = [];
 		}
 	}
 
