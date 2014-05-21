@@ -319,7 +319,7 @@ Essence.get = function(params, done) {
 						
 						fetchFromDb(queryString, where.whereParams, function (rows) {
 							_this.jorm.memcache.set(index, rows, 60*60*24, function (err) {
-								if (err) {throw err;}
+								if (err) {/*can't set value to memcache because of its size. So what?!*/ console.info(err); err = null;}
 								
 								var essences = buildEssences(rows);
 								if(_this.jorm.log) console.info('Getted '+ _this.table, essences.length);	
