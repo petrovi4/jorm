@@ -250,7 +250,7 @@ Essence.get = function(params, done) {
         //FIXME: insert caching here
         
 	this.jorm.dbLabmda(function(err, client, doneDB) {
-		if(err){ console.error(err); doneDB(); done('DB_ERROR'); return; }
+		if(err){ console.error(err); doneDB(); done(err); return; }
 
 		if(_this.jorm.logSQL) console.log(queryString, where.whereParams);
 
@@ -292,7 +292,7 @@ Essence.get = function(params, done) {
 		function fetchFromDb(queryString, params, returning) {
 			client.query(queryString, params, function(err, result) {
 				doneDB();
-				if(err){ console.error('Cant select\n', queryString, '\n' + err); done('DB_ERROR'); return; }
+				if(err){ console.error('Cant select\n', queryString, '\n' + err); done(err); return; }
 				
 				returning(result.rows);
 			});
@@ -406,7 +406,7 @@ Essence.prototype.save = function(done, cacheWasChecked, initialContext) {
 	}
 	
 	_this.jorm.dbLabmda(function(err, client, doneDB) {
-		if(err){ console.error(err); doneDB(); done('DB_ERROR'); return; }
+		if(err){ console.error(err); doneDB(); done(err); return; }
 
 		if(_this.id){ // update
 			if(_this.jorm.log) console.info('Start update ', _this.table);
@@ -429,7 +429,7 @@ Essence.prototype.save = function(done, cacheWasChecked, initialContext) {
 			
 			client.query(updateString, updateParams, function(err, result) {
 				doneDB();
-				if(err){ console.error('Cant update\n', updateString, '\n' + err); done('DB_ERROR'); return; }
+				if(err){ console.error('Cant update\n', updateString, '\n' + err); done(err); return; }
 
 				if(_this.jorm.log) console.info('Updated', _this.table);
 				done && done(null, _this);
@@ -458,7 +458,7 @@ Essence.prototype.save = function(done, cacheWasChecked, initialContext) {
             
 			client.query(insertString, insertParams, function(err, result) {
 				doneDB();
-				if(err){ console.error('Cant insert\n', insertString, '\n'+err); done('DB_ERROR'); return; }
+				if(err){ console.error('Cant insert\n', insertString, '\n'+err); done(err); return; }
 
 				_this.id = result.rows[0].id;
 				if(_this.jorm.log) console.info('Inserted', _this.table);
@@ -482,13 +482,13 @@ Essence.prototype.delete = function(done, cacheWasChecked, initialContext) {
 	}
 
 	_this.jorm.dbLabmda(function(err, client, doneDB) {
-		if(err){ console.error(err); doneDB(); done('DB_ERROR'); return; }
+		if(err){ console.error(err); doneDB(); done(err); return; }
 
 		if(_this.jorm.log) console.info('Start delete ', _this.table);
         
 		client.query('DELETE FROM "' + _this.table + '" WHERE id = $1', [_this.id], function(err, result) {
 			doneDB();
-			if(err){ console.error('Cant delete ' + _this.table, err); done('DB_ERROR'); return; }
+			if(err){ console.error('Cant delete ' + _this.table, err); done(err); return; }
 
 			if(_this.jorm.log) console.info('Deleted', _this.table);
 			done && done(err, _this);
