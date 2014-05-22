@@ -452,7 +452,7 @@ Essence.prototype.save = function(done, cacheWasChecked, initialContext) {
 				i++;
 			}
 
-			var insertString = 'INSERT INTO "' + _this.table + '" (' + insertFields + ') VALUES (' + insertValues +') RETURNING id';
+			var insertString = 'INSERT INTO "' + _this.table + '" (' + insertFields + ') VALUES (' + insertValues +') RETURNING *';
 
 			if(_this.jorm.logSQL) console.log(insertString, insertParams);
             
@@ -460,7 +460,10 @@ Essence.prototype.save = function(done, cacheWasChecked, initialContext) {
 				doneDB();
 				if(err){ console.error('Cant insert\n', insertString, '\n'+err); done(err); return; }
 
-				_this.id = result.rows[0].id;
+				for (var key in result.rows[0]) {
+					_this[key] = result.rows[0][key];
+				}
+				
 				if(_this.jorm.log) console.info('Inserted', _this.table);
 				done && done(err, _this);
 			});
