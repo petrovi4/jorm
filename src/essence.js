@@ -247,8 +247,6 @@ Essence.get = function(params, done) {
         var whereClauseConcat = (where.whereClause.length > 0 ? ' WHERE ' : '') + where.whereClause;
         var queryString = 'SELECT '+ selectFields +' FROM "' + _this.table + '"' + tablesJoin + whereClauseConcat + orderClause + limitClause + offsetClause;
         
-        //FIXME: insert caching here
-        
 	this.jorm.dbLabmda(function(err, client, doneDB) {
 		if(err){ console.error(err); doneDB(); done(err); return; }
 
