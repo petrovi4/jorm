@@ -175,4 +175,13 @@ describe('core', function () {
 			done();
 		});
 	});	
+	
+	it ('select by query string', function (done) {
+		jorm.Parent1.get({query : 'Select * from parent_1 where id = $1', where : [1]}, function (err, parents1) {
+			if (err) throw err;
+			parent1 = parents1[0].getPublic();
+			parent1.should.have.property('id');
+			done();
+		});
+	});
 });

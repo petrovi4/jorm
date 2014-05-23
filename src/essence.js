@@ -170,83 +170,90 @@ Essence.getJoinParams = function(join) {
 
 Essence.get = function(params, done) {
 	if(this.jorm.log) console.log('Start get', params);	
-
-	var selectFields = this.selectFields(params);
-	var tablesJoin = '';
-
-	var where = {whereClause: '', whereParams: [], index: 1};
-
-	var orderClause = '';
-	var limitClause = '';
-	var offsetClause = '';
-
-	var joinsCache = {};
-
-	for(var joinIndex in params.join){
-		var join = params.join[joinIndex] = this.getJoinParams(params.join[joinIndex]);
-
-		tablesJoin += ' ' + join.joinClause + ' "' + join.essence.table + '" as "' + join.prefix + '"';
-		tablesJoin += ' ON (';
-		for(var i=0; i<join.field.length; i++){
-			tablesJoin += (i==0?'':' AND ') + '"' + this.table + '"."' + join.field[i] + '" = "' + join.prefix + '"."' + join.joinField[i] + '"';
-		}
-		tablesJoin += ')';
-
-		selectFields += ', ' + join.essence.selectFields(params, join.prefix);
-
-		where = join.essence.where(where, join.prefix, join.where);
-
-		joinsCache[join.essence.name] = join;
-	}
-
-	where = this.where(where, this.table, params);
-
-	if(this.order){
-		orderClause = this.order(params);
-	}
-	if(!orderClause){
-		for(var orderParam in params){
-			if( params[orderParam] == undefined ) continue;
-
-			if(orderParam == 'order by asc'){
-				orderClause = ' order by "' +  this.table + '"."' + params[orderParam] + '" asc';
-			}
-			else if(orderParam == 'order by desc'){
-				orderClause = ' order by "' +  this.table + '"."' + params[orderParam] + '" desc';
-			}
-		}
-	}
-
-	if(this.limit){
-		limitClause = this.limit(params);
-	}
-	else{
-		for(var limitParam in params){
-			if( params[limitParam] == undefined ) continue;
-
-			if(limitParam == 'limit'){
-				limitClause = ' limit ' + parseInt(params[limitParam]);
-			}
-		}
-	}
-
-	if(this.offset){
-		offsetClause = this.offset(params);
-	}
-	else{
-		for(var offsetParam in params){
-			if( params[offsetParam] == undefined ) continue;
-
-			if(offsetParam == 'offset'){
-				offsetClause = ' offset ' + parseInt(params[offsetParam]);
-			}
-		}
-	}
-
 	var _this = this;
-        var whereClauseConcat = (where.whereClause.length > 0 ? ' WHERE ' : '') + where.whereClause;
-        var queryString = 'SELECT '+ selectFields +' FROM "' + _this.table + '"' + tablesJoin + whereClauseConcat + orderClause + limitClause + offsetClause;
-        
+	
+	if (params.query == undefined) {
+		var selectFields = this.selectFields(params);
+		var tablesJoin = '';
+
+		var where = {whereClause: '', whereParams: [], index: 1};
+
+		var orderClause = '';
+		var limitClause = '';
+		var offsetClause = '';
+
+		var joinsCache = {};
+
+		for(var joinIndex in params.join){
+			var join = params.join[joinIndex] = this.getJoinParams(params.join[joinIndex]);
+
+			tablesJoin += ' ' + join.joinClause + ' "' + join.essence.table + '" as "' + join.prefix + '"';
+			tablesJoin += ' ON (';
+			for(var i=0; i<join.field.length; i++){
+				tablesJoin += (i==0?'':' AND ') + '"' + this.table + '"."' + join.field[i] + '" = "' + join.prefix + '"."' + join.joinField[i] + '"';
+			}
+			tablesJoin += ')';
+
+			selectFields += ', ' + join.essence.selectFields(params, join.prefix);
+
+			where = join.essence.where(where, join.prefix, join.where);
+
+			joinsCache[join.essence.name] = join;
+		}
+
+		where = this.where(where, this.table, params);
+
+		if(this.order){
+			orderClause = this.order(params);
+		}
+		if(!orderClause){
+			for(var orderParam in params){
+				if( params[orderParam] == undefined ) continue;
+
+				if(orderParam == 'order by asc'){
+					orderClause = ' order by "' +  this.table + '"."' + params[orderParam] + '" asc';
+				}
+				else if(orderParam == 'order by desc'){
+					orderClause = ' order by "' +  this.table + '"."' + params[orderParam] + '" desc';
+				}
+			}
+		}
+
+		if(this.limit){
+			limitClause = this.limit(params);
+		}
+		else{
+			for(var limitParam in params){
+				if( params[limitParam] == undefined ) continue;
+
+				if(limitParam == 'limit'){
+					limitClause = ' limit ' + parseInt(params[limitParam]);
+				}
+			}
+		}
+
+		if(this.offset){
+			offsetClause = this.offset(params);
+		}
+		else{
+			for(var offsetParam in params){
+				if( params[offsetParam] == undefined ) continue;
+
+				if(offsetParam == 'offset'){
+					offsetClause = ' offset ' + parseInt(params[offsetParam]);
+				}
+			}
+		}
+
+		
+		var whereClauseConcat = (where.whereClause.length > 0 ? ' WHERE ' : '') + where.whereClause;
+		var queryString = 'SELECT '+ selectFields +' FROM "' + _this.table + '"' + tablesJoin + whereClauseConcat + orderClause + limitClause + offsetClause;
+		
+	} else {
+		queryString = params.query;
+		where = {whereParams: params.where};
+	}
+	
 	this.jorm.dbLabmda(function(err, client, doneDB) {
 		if(err){ console.error(err); doneDB(); done(err); return; }
 
