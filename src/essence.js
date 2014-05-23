@@ -11,7 +11,7 @@ var Essence = function(meta, params, joinParams, prefix) {
 	var props = [];
     for (var property in meta.fields)
         props.push(property);
-
+	
     if (meta.extraFields != undefined)
         for (var extraProperty in meta.extraFields)
             props.push(extraProperty);
@@ -264,6 +264,7 @@ Essence.get = function(params, done) {
 			var essences = [];
 			
 			for(var i=0; i<list.length; i++){
+				
 				var newEssence = new Essence(_this, list[i], params.join);
 
 				// Ищем, может из-за джойна этот объект уже создавался
@@ -271,6 +272,7 @@ Essence.get = function(params, done) {
 					if(essences[j].id && newEssence.id && essences[j].id == newEssence.id){ // Такой объект уже есть
 
 						for(var joinIndex in params.join){ // Все сджойненые объекты newEssence добавляем в найденный essences[j]
+							
                             var joinedName =
                                 params.join[joinIndex].fieldName
                                     ? params.join[joinIndex].fieldName
