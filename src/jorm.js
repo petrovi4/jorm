@@ -1,6 +1,7 @@
 var pg = require('pg');
 var extend = require('extend');
 var async = require('async');
+var Memcached = require('memcached');
 
 module.exports = function(jormParams, config) {
 	var essence = require('./essence');
@@ -8,6 +9,9 @@ module.exports = function(jormParams, config) {
 	this.connectionString = (typeof jormParams == 'string' ? jormParams : jormParams.connectionString);
 	this.logSQL = jormParams.logSQL != null ? jormParams.logSQL : true;
 	this.log = jormParams.log != null ? jormParams.log : true;
+        
+        this.useCache = (jormParams.cache != null);
+        this.memcache = (jormParams.cache);
 	
 	// console.log('connectionString', this.connectionString);
 	// console.log('logSQL', this.logSQL);

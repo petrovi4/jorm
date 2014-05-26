@@ -28,7 +28,7 @@ describe('core', function () {
 
 		var jormModule = require('../src/jorm');
 		console.log(jormModule);
-		jorm = new jormModule({connectionString: connectionString, logSQL: true, log: false}, config);
+		jorm = new jormModule({connectionString: connectionString, logSQL: false, log: false}, config);
 
 		done();
 	});
@@ -38,8 +38,8 @@ describe('core', function () {
 	});	
 
 	it('Parent1 должен содержать методы internalWhereProcess, getSelectFields, get', function () {
-		jorm.Parent1.should.have.property('internalWhereProcess');
-		jorm.Parent1.should.have.property('getSelectFields');
+		//jorm.Parent1.should.have.property('internalWhereProcess');
+		jorm.Parent1.should.have.property('selectFields');
 		jorm.Parent1.should.have.property('get');
 	});	
 
@@ -164,17 +164,58 @@ describe('core', function () {
 
 			parents1.length.should.be.equal(1);
 
-			parent1 = parents1[0];
+			var parent1 = parents1[0];
 
 			parent1.id.should.equal(1);
 			parent1.name.should.equal('test1');
 
 			should.exist(parent1.Child1);
 			parent1.Child1.length.should.equal(2);
-			parent1.Child1[0].id.should.equal(2);
-			parent1.Child1[1].id.should.equal(1);
-
+			
 			done();
 		});
 	});	
+	
+	it('should select by query string', function (done) {
+		jorm.Parent1.get({query : 'Select * from parent_1 where id = $1', where : [1]}, function (err, parents1) {
+			if (err) throw err;
+			parent1 = parents1[0].getPublic();
+			parent1.should.have.property('id');
+			done();
+		});
+	});
+	
+	it ('should select by query string with joins', function (done) {
+		jorm.Parent1.get(
+			{
+				query: '\
+					select \n\
+						p.id as "parent_1.id",\n\
+						p.name as "parent_1.name",\n\
+						p.created as "parent_1.created",\n\
+						c.id  as "c.id", \n\
+						c.name_child as "c.name_child", \n\
+						c.created as "c.created", \n\
+						c.parent_1_id as "c.parent_1_id" \n\
+				from parent_1 p left join child_1 c on (c.parent_1_id = p.id) where p.id = $1',
+			
+				where: [1],
+				join : [{essence: 'Child1', prefix: 'c'}]
+			}, 
+			function (err, parents1) {
+				if (err) throw err;
+				
+				parents1.length.should.be.equal(1);
+				var parent1 = parents1[0];
+
+				parent1.id.should.equal(1);
+				parent1.name.should.equal('test1');
+
+				should.exist(parent1.Child1);
+				parent1.Child1.length.should.equal(2);
+				
+				done();
+			}
+		);
+	});
 });

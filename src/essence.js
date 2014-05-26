@@ -1,13 +1,23 @@
 var pg = require('pg');
 var extend = require('extend');
 var uuid = require('node-uuid');
+var crypto = require('crypto');
 
 var Essence = function(meta, params, joinParams, prefix) {	
-	// console.log('Create new', meta, '\n', params, '\n', joinParams, '\n', prefix);
+	//console.log('Create new', meta, '\n with params', params, '\nwith join params', joinParams, '\n and prefix', prefix);
 	extend(this, meta);
-
+	
 	var inited = false;
-	for(var property in meta.fields){
+	var props = [];
+    for (var property in meta.fields)
+        props.push(property);
+	
+    if (meta.extraFields != undefined)
+        for (var extraProperty in meta.extraFields)
+            props.push(extraProperty);
+    
+	for(var i = 0; i < props.length; i++){
+        var property = props[i];
 		if(params[property] != null && params[property] != undefined){
 			this[property] = params[property];	
 		}
@@ -27,11 +37,16 @@ var Essence = function(meta, params, joinParams, prefix) {
 		var join = this.getJoinParams( joinParams[joinIndex] );
 		try{
 			var joineEssence = new Essence(join.essence, params, null, join.prefix);
-			this[join.essence.name] = [ joineEssence ];
+            var fieldName =
+                join.fieldName
+                    ? join.fieldName
+                    : join.essence.name;
+
+			this[fieldName] = [joineEssence];
 		}
 		catch(err){ if(this.jorm.log){ console.error(err); } }
 	}
-
+        
 	if(this.init) this.init(params);
 }
 
@@ -155,106 +170,116 @@ Essence.getJoinParams = function(join) {
 
 Essence.get = function(params, done) {
 	if(this.jorm.log) console.log('Start get', params);	
-
-	var selectFields = this.selectFields(params);
-	var tablesJoin = '';
-
-	var where = {whereClause: '', whereParams: [], index: 1};
-
-	var orderClause = '';
-	var limitClause = '';
-	var offsetClause = '';
-
-	var joinsCache = {};
-
-	for(var joinIndex in params.join){
-		var join = params.join[joinIndex] = this.getJoinParams(params.join[joinIndex]);
-
-		tablesJoin += ' ' + join.joinClause + ' "' + join.essence.table + '" as "' + join.prefix + '"';
-		tablesJoin += ' ON (';
-		for(var i=0; i<join.field.length; i++){
-			tablesJoin += (i==0?'':' AND ') + '"' + this.table + '"."' + join.field[i] + '" = "' + join.prefix + '"."' + join.joinField[i] + '"';
-		}
-		tablesJoin += ')';
-
-		selectFields += ', ' + join.essence.selectFields(params, join.prefix);
-
-		where = join.essence.where(where, join.prefix, join.where);
-
-		joinsCache[join.essence.name] = join;
-	}
-
-	where = this.where(where, this.table, params);
-
-	if(this.order){
-		orderClause = this.order(params);
-	}
-	if(!orderClause){
-		for(var orderParam in params){
-			if( params[orderParam] == undefined ) continue;
-
-			if(orderParam == 'order by asc'){
-				orderClause = ' order by "' +  this.table + '"."' + params[orderParam] + '" asc';
-			}
-			else if(orderParam == 'order by desc'){
-				orderClause = ' order by "' +  this.table + '"."' + params[orderParam] + '" desc';
-			}
-		}
-	}
-
-	if(this.limit){
-		limitClause = this.limit(params);
-	}
-	else{
-		for(var limitParam in params){
-			if( params[limitParam] == undefined ) continue;
-
-			if(limitParam == 'limit'){
-				limitClause = ' limit ' + parseInt(params[limitParam]);
-			}
-		}
-	}
-
-	if(this.offset){
-		offsetClause = this.offset(params);
-	}
-	else{
-		for(var offsetParam in params){
-			if( params[offsetParam] == undefined ) continue;
-
-			if(offsetParam == 'offset'){
-				offsetClause = ' offset ' + parseInt(params[offsetParam]);
-			}
-		}
-	}
-
 	var _this = this;
-	this.jorm.dbLabmda(function(err, client, doneDB) {
-		if(err){ console.error(err); doneDB(); done('DB_ERROR'); return; }
+	
+	if (params.query == undefined) {
+		var selectFields = this.selectFields(params);
+		var tablesJoin = '';
 
+		var where = {whereClause: '', whereParams: [], index: 1};
+
+		var orderClause = '';
+		var limitClause = '';
+		var offsetClause = '';
+
+		var joinsCache = {};
+
+		for(var joinIndex in params.join){
+			var join = params.join[joinIndex] = this.getJoinParams(params.join[joinIndex]);
+
+			tablesJoin += ' ' + join.joinClause + ' "' + join.essence.table + '" as "' + join.prefix + '"';
+			tablesJoin += ' ON (';
+			for(var i=0; i<join.field.length; i++){
+				tablesJoin += (i==0?'':' AND ') + '"' + this.table + '"."' + join.field[i] + '" = "' + join.prefix + '"."' + join.joinField[i] + '"';
+			}
+			tablesJoin += ')';
+
+			selectFields += ', ' + join.essence.selectFields(params, join.prefix);
+
+			where = join.essence.where(where, join.prefix, join.where);
+
+			joinsCache[join.essence.name] = join;
+		}
+
+		where = this.where(where, this.table, params);
+
+		if(this.order){
+			orderClause = this.order(params);
+		}
+		if(!orderClause){
+			for(var orderParam in params){
+				if( params[orderParam] == undefined ) continue;
+
+				if(orderParam == 'order by asc'){
+					orderClause = ' order by "' +  this.table + '"."' + params[orderParam] + '" asc';
+				}
+				else if(orderParam == 'order by desc'){
+					orderClause = ' order by "' +  this.table + '"."' + params[orderParam] + '" desc';
+				}
+			}
+		}
+
+		if(this.limit){
+			limitClause = this.limit(params);
+		}
+		else{
+			for(var limitParam in params){
+				if( params[limitParam] == undefined ) continue;
+
+				if(limitParam == 'limit'){
+					limitClause = ' limit ' + parseInt(params[limitParam]);
+				}
+			}
+		}
+
+		if(this.offset){
+			offsetClause = this.offset(params);
+		}
+		else{
+			for(var offsetParam in params){
+				if( params[offsetParam] == undefined ) continue;
+
+				if(offsetParam == 'offset'){
+					offsetClause = ' offset ' + parseInt(params[offsetParam]);
+				}
+			}
+		}
+
+		
 		var whereClauseConcat = (where.whereClause.length > 0 ? ' WHERE ' : '') + where.whereClause;
-
 		var queryString = 'SELECT '+ selectFields +' FROM "' + _this.table + '"' + tablesJoin + whereClauseConcat + orderClause + limitClause + offsetClause;
+		
+	} else {
+		queryString = params.query;
+		where = {whereParams: params.where};
+	}
+	
+	this.jorm.dbLabmda(function(err, client, doneDB) {
+		if(err){ console.error(err); doneDB(); done(err); return; }
 
 		if(_this.jorm.logSQL) console.log(queryString, where.whereParams);
 
-		client.query(queryString, where.whereParams, function(err, result) {
-			doneDB();
-			if(err){ console.error('Cant select\n', queryString, '\n' + err); done('DB_ERROR'); return; }
-
+		// <<< helpers stuff
+		function buildEssences(list) {
 			var essences = [];
-
-			// По всем строком из результата SQL запроса
-			for(var i=0; i<result.rows.length; i++){
-				var newEssence = new Essence(_this, result.rows[i], params.join);
+			
+			for(var i=0; i<list.length; i++){
+				
+				var newEssence = new Essence(_this, list[i], params.join);
 
 				// Ищем, может из-за джойна этот объект уже создавался
 				for(var j=0; j<essences.length; j++){
 					if(essences[j].id && newEssence.id && essences[j].id == newEssence.id){ // Такой объект уже есть
 
 						for(var joinIndex in params.join){ // Все сджойненые объекты newEssence добавляем в найденный essences[j]
-							for(var joinedObjectIndex in newEssence[ params.join[joinIndex].essence.name ]){ // Все сджойненные объекты из newEssence одного типа
-								essences[j][params.join[joinIndex].essence.name].push( newEssence[ params.join[joinIndex].essence.name ][joinedObjectIndex] )
+							
+                            var joinedName =
+                                params.join[joinIndex].fieldName
+                                    ? params.join[joinIndex].fieldName
+                                    : params.join[joinIndex].essence.name;
+
+                            for(var joinedObjectIndex in newEssence[ joinedName ]){ // Все сджойненные объекты из newEssence одного типа
+                                essences[j][joinedName].push( newEssence[ joinedName ][joinedObjectIndex] );
 							}
 						}
 
@@ -267,19 +292,128 @@ Essence.get = function(params, done) {
 					essences.push( newEssence );	
 				}
 			}
+			
+			return essences;
+		}
+		
+		function fetchFromDb(queryString, params, returning) {
+			client.query(queryString, params, function(err, result) {
+				doneDB();
+				if(err){ console.error('Cant select\n', queryString, '\n' + err); done(err); return; }
+				
+				returning(result.rows);
+			});
+		}
+		// >>> helpers stuff
+		
+		if (!this.jorm.useCache) {
+			//Usual and simple way
+			fetchFromDb(queryString, where.whereParams, function (rows) {
+				var essences = buildEssences(rows);
+				if(_this.jorm.log) console.info('Getted '+ _this.table, essences.length);	
 
-			if(_this.jorm.log) console.info('Getted '+ _this.table, essences.length);	
+				done && done(err, essences);
+			});
+		} else {
+			_this.getCacheKey(queryString, where.whereParams, function (index) {
+				_this.jorm.memcache.get(index, function (err, data) {
+					if (data != false) {
+						doneDB();
+						if (_this.jorm.log) {console.info('Getted from cache ' + data)}
+						done(err, buildEssences(data));
+					} else {
+						if (_this.jorm.log) {console.info('Cache is empty, fetching from db')}
+						
+						fetchFromDb(queryString, where.whereParams, function (rows) {
+							_this.jorm.memcache.set(index, rows, 60*60*24, function (err) {
+								if (err) {/*can't set value to memcache because of its size. So what?!*/ console.info(err); err = null;}
+								
+								var essences = buildEssences(rows);
+								if(_this.jorm.log) console.info('Getted '+ _this.table, essences.length);	
 
-			done && done(err, essences);
-		});
+								done && done(err, essences);
+							});
+						});
+					}
+				});
+			});
+		}
 	});
 }
 
-Essence.prototype.save = function(done) {
-	var _this = this;
+Essence.getCacheKey = function (query, params, callback) {
+	function attachTagsMark(tagsArr, result, callback) {
+		
+		if (tagsArr == undefined || tagsArr.length == 0) {
+				callback(result); return;
+		}
+		
+		last = tagsArr.pop(); 
+		
+		this.jorm.memcache.get(last, function(err, getResult) {
+			if (err) {console.log(err);}
+			
+			if (!getResult) {
+				createNew(last, result, tagsArr, callback);
+				return;
+			} else {
+				result += '_' + getResult ;
+				attachTagsMark(tagsArr, result, callback);
+			}
+		});
+	}
+	
+	function createNew(index, result, tagsArr, callback) {
+		var value = Math.floor((Math.random()*10000)); 
+		this.jorm.memcache.set(index, value, 60*60*24, function (err) {
+			if (err) {
+				throw err;
+			}
+			result += '_' + value;
+			attachTagsMark(tagsArr, result, callback);
+		});
+	}
+	
+	var shasum = crypto.createHash('sha1');
+	
+	attachTagsMark(
+		this.tags.slice(),
+		this.name + '_' + shasum.update(query.toString() + params.toString()).digest('hex'), 
+		callback
+	);
 
-	this.jorm.dbLabmda(function(err, client, doneDB) {
-		if(err){ console.error(err); doneDB(); done('DB_ERROR'); return; }
+}
+
+Essence.prototype.cacheDevalidate = function(tagArr, callback, callbackOfCallback, context) {
+	function devalidate(tagArr) {
+		if (tagArr == undefined || tagArr.length == 0) {
+			callback(callbackOfCallback, true, context);
+			return;
+		}
+
+		this.jorm.memcache.incr(tagArr.pop(), 1, function(err) {
+			if (err) {throw err;}
+			devalidate(tagArr);
+		});
+	}
+			
+	devalidate(tagArr);
+}
+
+Essence.prototype.save = function(done, cacheWasChecked, initialContext) {
+	var _this = (initialContext == undefined) ? this : initialContext;
+	
+	if (cacheWasChecked == undefined) {
+		if (!this.jorm.useCache) {
+			this.save(done, true);
+		} else {
+			this.cacheDevalidate(this.tags.slice(), this.save, done, _this);
+		}
+		return;
+	}
+	
+	_this.jorm.dbLabmda(function(err, client, doneDB) {
+		if(err){ console.error(err); doneDB(); done(err); return; }
 
 		if(_this.id){ // update
 			if(_this.jorm.log) console.info('Start update ', _this.table);
@@ -302,7 +436,7 @@ Essence.prototype.save = function(done) {
 			
 			client.query(updateString, updateParams, function(err, result) {
 				doneDB();
-				if(err){ console.error('Cant update\n', updateString, '\n' + err); done('DB_ERROR'); return; }
+				if(err){ console.error('Cant update\n', updateString, '\n' + err); done(err); return; }
 
 				if(_this.jorm.log) console.info('Updated', _this.table);
 				done && done(null, _this);
@@ -325,15 +459,18 @@ Essence.prototype.save = function(done) {
 				i++;
 			}
 
-			var insertString = 'INSERT INTO "' + _this.table + '" (' + insertFields + ') VALUES (' + insertValues +') RETURNING id';
+			var insertString = 'INSERT INTO "' + _this.table + '" (' + insertFields + ') VALUES (' + insertValues +') RETURNING *';
 
 			if(_this.jorm.logSQL) console.log(insertString, insertParams);
-		
+            
 			client.query(insertString, insertParams, function(err, result) {
 				doneDB();
-				if(err){ console.error('Cant insert\n', insertString, '\n'+err); done('DB_ERROR'); return; }
+				if(err){ console.error('Cant insert\n', insertString, '\n'+err); done(err); return; }
 
-				_this.id = result.rows[0].id;
+				for (var key in result.rows[0]) {
+					_this[key] = result.rows[0][key];
+				}
+				
 				if(_this.jorm.log) console.info('Inserted', _this.table);
 				done && done(err, _this);
 			});
@@ -342,17 +479,26 @@ Essence.prototype.save = function(done) {
 	});
 };
 
-Essence.prototype.delete = function(done) {
-	var _this = this;
+Essence.prototype.delete = function(done, cacheWasChecked, initialContext) {
+	var _this = (initialContext == undefined) ? this : initialContext;
+	
+	if (cacheWasChecked == undefined) {
+		if (!this.jorm.useCache) {
+			this.delete(done, true);
+		} else {
+			this.cacheDevalidate(this.tags.slice(), this.delete, done, _this);
+		}
+		return;
+	}
 
-	this.jorm.dbLabmda(function(err, client, doneDB) {
-		if(err){ console.error(err); doneDB(); done('DB_ERROR'); return; }
+	_this.jorm.dbLabmda(function(err, client, doneDB) {
+		if(err){ console.error(err); doneDB(); done(err); return; }
 
 		if(_this.jorm.log) console.info('Start delete ', _this.table);
-
+        
 		client.query('DELETE FROM "' + _this.table + '" WHERE id = $1', [_this.id], function(err, result) {
 			doneDB();
-			if(err){ console.error('Cant delete ' + _this.table, err); done('DB_ERROR'); return; }
+			if(err){ console.error('Cant delete ' + _this.table, err); done(err); return; }
 
 			if(_this.jorm.log) console.info('Deleted', _this.table);
 			done && done(err, _this);
@@ -377,7 +523,13 @@ Essence.prototype.getPublicInternal = function(fields) {
 			for(var j=0; j< this[property].length; j++){
 				joinedEssences.push(this[property][j].getPublic());
 			}
-			publicThis[property] = joinedEssences;
+            if (joinedEssences.length > 1)
+                publicThis[property] = joinedEssences;
+            else
+                if (joinedEssences.length == 1)
+                    publicThis[property] = joinedEssences[0];
+                else
+                    publicThis[property] = [];
 		}
 	}
 
