@@ -469,7 +469,7 @@ Essence.prototype.save = function(done, cacheWasChecked, initialContext) {
 			if(_this.jorm.logSQL) console.log(insertString, insertParams);
             
 			client.query(insertString, insertParams, function(err, result) {
-				doneDB();
+				
 				if(err){ console.error('Cant insert\n', insertString, '\n'+err); done(err); return; }
 
 				for (var key in result.rows[0]) {
@@ -477,6 +477,7 @@ Essence.prototype.save = function(done, cacheWasChecked, initialContext) {
 				}
 				
 				if(_this.jorm.log) console.info('Inserted', _this.table);
+				doneDB();
 				done && done(err, _this);
 			});
 		}
