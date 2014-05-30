@@ -440,10 +440,10 @@ Essence.prototype.save = function(done, cacheWasChecked, initialContext) {
 			if(_this.jorm.logSQL) console.log(updateString, updateParams);
 			
 			client.query(updateString, updateParams, function(err, result) {
-				doneDB();
 				if(err){ console.error('Cant update\n', updateString, '\n' + err); done(err); return; }
 
 				if(_this.jorm.log) console.info('Updated', _this.table);
+				doneDB();
 				done && done(null, _this);
 			});
 		}
