@@ -412,7 +412,12 @@ Essence.prototype.save = function(done, cacheWasChecked, initialContext) {
 		return;
 	}
 	
-	_this.jorm.dbLabmda(function(err, client, doneDB) {
+	var dbFunctionName = 
+		_this.id 
+			? _this.jorm.dbLambdaForSave 
+			: _this.jorm.dbLambdaForAdd;
+		
+	dbFunctionName(_this, function(err, client, doneDB) {
 		if(err){ console.error(err); doneDB(); done(err); return; }
 
 		if(_this.id){ // update

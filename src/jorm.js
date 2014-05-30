@@ -9,9 +9,17 @@ module.exports = function(jormParams, config) {
 	this.connectionString = (typeof jormParams == 'string' ? jormParams : jormParams.connectionString);
 	this.logSQL = jormParams.logSQL != null ? jormParams.logSQL : true;
 	this.log = jormParams.log != null ? jormParams.log : true;
+	
+	this.defaultBeforeDBCallback = function (err, client, callback) {
+		callback();
+	};
+	
+	this.defaultAfterDBCallback = function (err, client, doneDB) {
+		doneDB();
+	}
         
-        this.useCache = (jormParams.cache != null);
-        this.memcache = (jormParams.cache);
+	this.useCache = (jormParams.cache != null);
+	this.memcache = (jormParams.cache);
 	
 	// console.log('connectionString', this.connectionString);
 	// console.log('logSQL', this.logSQL);
@@ -23,6 +31,34 @@ module.exports = function(jormParams, config) {
 			if(_this.log) console.log('Connected to PG');
 
 			executeInDBScope(err, client, donePG);
+		});
+	};
+	
+	this.dbLambdaForSave = function (context, callback) {
+		_this.dbLabmda(function(err, client, doneDB) {
+			context.beforeSave(err, client, function () {
+				callback(
+					err, 
+					client, 
+					function () {
+						context.afterSave(err, client, doneDB); 
+					}
+				);
+			});
+		});
+	};
+	
+	this.dbLambdaForAdd = function (context, callback) {
+		_this.dbLabmda(function(err, client, doneDB) {
+			context.beforeAdd(err, client, function () {
+				callback(
+					err, 
+					client, 
+					function () {
+						context.afterAdd(err, client, doneDB); 
+					}
+				);
+			});
 		});
 	};
 
@@ -45,7 +81,19 @@ module.exports = function(jormParams, config) {
 				result.push(publicEssence);
 			}
 			return result;
-		}
+		};
+		
+		['Add', 'Save'].forEach(function (operation) {
+			_this[essenceMeta]['before' + operation] =
+			(config[essenceMeta]['before' + operation] != undefined) 
+				? config[essenceMeta]['before' + operation]
+				: _this.defaultBeforeDBCallback;
+				
+			_this[essenceMeta]['after' + operation] =
+			(config[essenceMeta]['after' + operation] != undefined) 
+				? config[essenceMeta]['after' + operation] 
+				: _this.defaultAfterDBCallback;
+		});
 	}
 
 	return this;
