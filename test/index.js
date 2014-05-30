@@ -13,6 +13,18 @@ describe('core', function () {
 					id: {},
 					created: {},
 					name: {}
+				},
+				beforeAdd : function (err, client, callback) {
+					console.log('parent gonna be added');
+					callback();
+				},
+				afterAdd : function (err, client, doneDB) {
+					console.log('parent was successfully added');
+					doneDB();
+				},
+				beforeSave : function (err, client, callback) {
+					console.log('parent gonna be updated');
+					callback();
 				}
 			},
 			Child1: {
