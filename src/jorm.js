@@ -14,8 +14,9 @@ module.exports = function(jormParams, config) {
 		callback();
 	};
 	
-	this.defaultAfterDBCallback = function (err, client, doneDB) {
+	this.defaultAfterDBCallback = function (err, client, callback, callbackErr, callbackData, doneDB) {
 		doneDB();
+		callback(callbackErr, callbackData);
 	}
         
 	this.useCache = (jormParams.cache != null);
@@ -38,11 +39,10 @@ module.exports = function(jormParams, config) {
 		_this.dbLabmda(function(err, client, doneDB) {
 			context.beforeSave(err, client, function () {
 				callback(
-					err, 
-					client, 
-					function () {
-						context.afterSave(err, client, doneDB); 
-					}
+					err,
+					client,
+					context.afterSave,
+					doneDB
 				);
 			});
 		});
@@ -52,11 +52,10 @@ module.exports = function(jormParams, config) {
 		_this.dbLabmda(function(err, client, doneDB) {
 			context.beforeAdd(err, client, function () {
 				callback(
-					err, 
-					client, 
-					function () {
-						context.afterAdd(err, client, doneDB); 
-					}
+					err,
+					client,
+					context.afterSave,
+					doneDB
 				);
 			});
 		});

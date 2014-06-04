@@ -417,7 +417,7 @@ Essence.prototype.save = function(done, cacheWasChecked, initialContext) {
 			? _this.jorm.dbLambdaForSave 
 			: _this.jorm.dbLambdaForAdd;
 		
-	dbFunctionName(_this, function(err, client, doneDB) {
+	dbFunctionName(_this, function(err, client, aftersave, doneDB) {
 		if(err){ console.error(err); doneDB(); done(err); return; }
 
 		if(_this.id){ // update
@@ -440,11 +440,15 @@ Essence.prototype.save = function(done, cacheWasChecked, initialContext) {
 			if(_this.jorm.logSQL) console.log(updateString, updateParams);
 			
 			client.query(updateString, updateParams, function(err, result) {
-				if(err){ console.error('Cant update\n', updateString, '\n' + err); done(err); return; }
+				if(err){
+					console.error('Cant update\n', updateString, '\n' + err); 
+					aftersave(err, client, done, err, result, doneDB);
+					return; 
+				}
 
 				if(_this.jorm.log) console.info('Updated', _this.table);
-				doneDB();
-				done && done(null, _this);
+				//err, client, callback, callbackErr, callbackData, doneDB
+				aftersave(null, client, done, null, _this, doneDB);		
 			});
 		}
 		else{ // insert
@@ -470,15 +474,18 @@ Essence.prototype.save = function(done, cacheWasChecked, initialContext) {
             
 			client.query(insertString, insertParams, function(err, result) {
 				
-				if(err){ console.error('Cant insert\n', insertString, '\n'+err); done(err); return; }
+				if(err){
+					console.error('Cant insert\n', insertString, '\n'+err); 
+					aftersave(err, client, done, err, result, doneDB);
+					return;
+				}
 
 				for (var key in result.rows[0]) {
 					_this[key] = result.rows[0][key];
 				}
 				
 				if(_this.jorm.log) console.info('Inserted', _this.table);
-				doneDB();
-				done && done(err, _this);
+				aftersave(null, client, done, null, _this, doneDB);
 			});
 		}
 		
