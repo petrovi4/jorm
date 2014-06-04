@@ -54,7 +54,7 @@ module.exports = function(jormParams, config) {
 				callback(
 					err,
 					client,
-					context.afterSave,
+					context.afterAdd,
 					doneDB
 				);
 			});
