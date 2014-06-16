@@ -55,7 +55,7 @@ Essence.whereParamInternal = function(prefix, param, value, index) {
 	var whereClause = '';
 	var whereParams = [];
 
-	// console.log('Process param', prefix, param, value, index);
+	console.log('Process param', prefix, param, value, index);
 
 	if( value == undefined && value != null ) return;
 	if( param.toString().indexOf('order by') != -1 ) return;
@@ -89,7 +89,7 @@ Essence.whereParamInternal = function(prefix, param, value, index) {
 		index++;
 	}
 	else if(param.toString().indexOf('.') != -1){
-		whereClause += param + ' = $' + index.toString();
+		whereClause += '"' + param + '" = $' + index.toString();
 		whereParams.push(value);
 		index++;
 	}
