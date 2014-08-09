@@ -216,7 +216,7 @@ Essence.get = function(params, done) {
 				else if(orderParam == 'order by desc'){
 					orderClause = ' order by "' +  this.table + '"."' + params[orderParam] + '" desc';
 				}
-				else if(orderParam == 'random'){
+				else if(orderParam == 'order by random'){
 					orderClause = ' order by random()';
 				}
 			}
