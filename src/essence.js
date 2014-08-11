@@ -76,7 +76,7 @@ Essence.whereParamInternal = function(prefix, param, value, index) {
 		whereClause += ')';
 	}
 	else if(value.comparsion){
-		whereClause += '"' + prefix + '"."' + param + '" ' + value.comparsion + ' $' + index.toString();
+		whereClause += '"' + prefix + '"."' + (value.field || param) + '" ' + value.comparsion + ' $' + index.toString();
 		whereParams.push(value.value);
 		index++;
 	}
