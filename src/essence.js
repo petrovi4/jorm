@@ -33,7 +33,7 @@ var Essence = function(meta, params, joinParams, prefix) {
 		throw new Error('NOT_INITIALIZED');
 	}
 
-	for(var joinIndex in joinParams){
+	for(var joinIndex=0; joinIndex < (joinParams||[]).length; joinIndex++){
 		var join = this.getJoinParams( joinParams[joinIndex] );
 		try{
 			var joineEssence = new Essence(join.essence, params, null, join.prefix);
@@ -184,7 +184,8 @@ Essence.get = function(params, done) {
 
 		var joinsCache = {};
 
-		for(var joinIndex in params.join){
+		for(var joinIndex=0; joinIndex < (params.join || []).length; joinIndex++){
+			console.log('joinIndex', joinIndex);
 			var join = params.join[joinIndex] = this.getJoinParams(params.join[joinIndex]);
 
 			tablesJoin += ' ' + join.joinClause + ' "' + join.essence.table + '" as "' + join.prefix + '"';
