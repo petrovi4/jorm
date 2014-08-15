@@ -37,7 +37,7 @@ module.exports = function(jormParams, config) {
 	};
 
 	for(var essenceMeta in config){
-		console.log('essenceMeta', essenceMeta);
+		// console.log('essenceMeta', essenceMeta);
 
 		_this[ essenceMeta ] = extend( {}, essence, config[ essenceMeta ] );
 
