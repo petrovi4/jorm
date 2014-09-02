@@ -3,6 +3,16 @@ var extend = require('extend');
 var async = require('async');
 var Memcached = require('memcached');
 
+Array.prototype.getPublic = function() {
+	var publicArr = [];
+	for(var i=0; i<this.length; i++){
+		if(this[i].getPublic){
+			publicArr.push(this[i].getPublic());
+		}
+	}
+	return publicArr;
+}
+
 module.exports = function(jormParams, config) {
 	var essence = require('./essence');
 
@@ -62,7 +72,7 @@ module.exports = function(jormParams, config) {
 	};
 
 	for(var essenceMeta in config){
-		console.log('essenceMeta', essenceMeta);
+		// console.log('essenceMeta', essenceMeta);
 
 		_this[ essenceMeta ] = extend( {}, essence, config[ essenceMeta ] );
 

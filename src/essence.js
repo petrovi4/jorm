@@ -33,7 +33,7 @@ var Essence = function(meta, params, joinParams, prefix) {
 		throw new Error('NOT_INITIALIZED');
 	}
 
-	for(var joinIndex in joinParams){
+	for(var joinIndex=0; joinIndex < (joinParams||[]).length; joinIndex++){
 		var join = this.getJoinParams( joinParams[joinIndex] );
 		try{
 			var joineEssence = new Essence(join.essence, params, null, join.prefix);
@@ -55,7 +55,7 @@ Essence.whereParamInternal = function(prefix, param, value, index) {
 	var whereClause = '';
 	var whereParams = [];
 
-	// console.log('Process param', prefix, param, value, index);
+	console.log('Process param', prefix, param, value, index);
 
 	if( value == undefined && value != null ) return;
 	if( param.toString().indexOf('order by') != -1 ) return;
@@ -76,7 +76,7 @@ Essence.whereParamInternal = function(prefix, param, value, index) {
 		whereClause += ')';
 	}
 	else if(value.comparsion){
-		whereClause += '"' + prefix + '"."' + param + '" ' + value.comparsion + ' $' + index.toString();
+		whereClause += '"' + prefix + '"."' + (value.field || param) + '" ' + value.comparsion + ' $' + index.toString();
 		whereParams.push(value.value);
 		index++;
 	}
@@ -89,7 +89,7 @@ Essence.whereParamInternal = function(prefix, param, value, index) {
 		index++;
 	}
 	else if(param.toString().indexOf('.') != -1){
-		whereClause += param + ' = $' + index.toString();
+		whereClause += '"' + param + '" = $' + index.toString();
 		whereParams.push(value);
 		index++;
 	}
@@ -184,7 +184,8 @@ Essence.get = function(params, done) {
 
 		var joinsCache = {};
 
-		for(var joinIndex in params.join){
+		for(var joinIndex=0; joinIndex < (params.join || []).length; joinIndex++){
+			console.log('joinIndex', joinIndex);
 			var join = params.join[joinIndex] = this.getJoinParams(params.join[joinIndex]);
 
 			tablesJoin += ' ' + join.joinClause + ' "' + join.essence.table + '" as "' + join.prefix + '"';
@@ -215,6 +216,9 @@ Essence.get = function(params, done) {
 				}
 				else if(orderParam == 'order by desc'){
 					orderClause = ' order by "' +  this.table + '"."' + params[orderParam] + '" desc';
+				}
+				else if(orderParam == 'order by random'){
+					orderClause = ' order by random()';
 				}
 			}
 		}
