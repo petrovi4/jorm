@@ -55,7 +55,7 @@ Essence.whereParamInternal = function(prefix, param, value, index) {
 	var whereClause = '';
 	var whereParams = [];
 
-	console.log('Process param', prefix, param, value, index);
+	if(this.jorm.log) console.log('Process param', prefix, param, value, index);
 
 	if( value == undefined && value != null ) return;
 	if( param.toString().indexOf('order by') != -1 ) return;
@@ -185,7 +185,7 @@ Essence.get = function(params, done) {
 		var joinsCache = {};
 
 		for(var joinIndex=0; joinIndex < (params.join || []).length; joinIndex++){
-			console.log('joinIndex', joinIndex);
+			if(this.jorm.log) console.log('joinIndex', joinIndex);
 			var join = params.join[joinIndex] = this.getJoinParams(params.join[joinIndex]);
 
 			tablesJoin += ' ' + join.joinClause + ' "' + join.essence.table + '" as "' + join.prefix + '"';
