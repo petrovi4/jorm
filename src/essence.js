@@ -212,10 +212,10 @@ Essence.get = function(params, done) {
 				if( params[orderParam] == undefined ) continue;
 
 				if(orderParam == 'order by asc'){
-					orderClause = ' order by "' +  this.table + '"."' + params[orderParam] + '" asc';
+					orderClause = ' order by "' + (params[orderParam].indexOf('.') == -1 ? (this.table + '"."') : '') + params[orderParam] + '" asc';
 				}
 				else if(orderParam == 'order by desc'){
-					orderClause = ' order by "' +  this.table + '"."' + params[orderParam] + '" desc';
+					orderClause = ' order by "' +  (params[orderParam].indexOf('.') == -1 ? (this.table + '"."') : '') + params[orderParam] + '" desc';
 				}
 				else if(orderParam == 'order by random'){
 					orderClause = ' order by random()';
