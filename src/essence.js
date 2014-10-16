@@ -275,14 +275,13 @@ Essence.get = function(params, done) {
 				for(var j=0; j<essences.length; j++){
 					if(essences[j].id && newEssence.id && essences[j].id == newEssence.id){ // Такой объект уже есть
 
-						for(var joinIndex in params.join){ // Все сджойненые объекты newEssence добавляем в найденный essences[j]
-							
+						for(var joinIndex = 0; joinIndex < (params.join || []).length; joinIndex++){ // Все сджойненые объекты newEssence добавляем в найденный essences[j]
                             var joinedName =
                                 params.join[joinIndex].fieldName
                                     ? params.join[joinIndex].fieldName
                                     : params.join[joinIndex].essence.name;
 
-                            for(var joinedObjectIndex in newEssence[ joinedName ]){ // Все сджойненные объекты из newEssence одного типа
+                            for(var joinedObjectIndex = 0; joinedObjectIndex < (newEssence[ joinedName ] || []).length; joinedObjectIndex++){ // Все сджойненные объекты из newEssence одного типа
                                 essences[j][joinedName].push( newEssence[ joinedName ][joinedObjectIndex] );
 							}
 						}
