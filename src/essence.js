@@ -321,11 +321,15 @@ Essence.get = function(params, done) {
 		} else {
 			_this.getCacheKey(queryString, where.whereParams, function (index) {
 				_this.jorm.memcache.get(index, function (err, data) {
-					if (data != false) {
+                    if (!err && data != false) {
 						doneDB();
 						if (_this.jorm.log) {console.info('Getted from cache ' + data)}
 						done(err, buildEssences(data));
 					} else {
+                        if (err && _this.jorm.log) {
+                            console.log('Cache error - ' + err);
+                        }
+
 						if (_this.jorm.log) {console.info('Cache is empty, fetching from db')}
 						
 						fetchFromDb(queryString, where.whereParams, function (rows) {
@@ -371,7 +375,7 @@ Essence.getCacheKey = function (query, params, callback) {
 		var value = Math.floor((Math.random()*10000)); 
 		this.jorm.memcache.set(index, value, 60*60*24, function (err) {
 			if (err) {
-				throw err;
+				console.log(err);
 			}
 			result += '_' + value;
 			attachTagsMark(tagsArr, result, callback);
@@ -396,7 +400,7 @@ Essence.prototype.cacheDevalidate = function(tagArr, callback, callbackOfCallbac
 		}
 
 		this.jorm.memcache.incr(tagArr.pop(), 1, function(err) {
-			if (err) {throw err;}
+			if (err) { console.log(err); }
 			devalidate(tagArr);
 		});
 	}
