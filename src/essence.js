@@ -552,7 +552,6 @@ Essence.prototype.getPublicInternal = function(fields) {
 			else
 				publicThis[property] = [];
 		}
-		else {console.log('Skip', property);}
 	}
 
 	fields = fields || [];
