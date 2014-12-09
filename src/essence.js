@@ -309,7 +309,7 @@ Essence.get = function(params, done) {
 		}
 		// >>> helpers stuff
 		
-		if (!this.jorm.useCache) {
+		if (!_this.jorm.useCache) {
 			//Usual and simple way
 			fetchFromDb(queryString, where.whereParams, function (rows) {
 				var essences = buildEssences(rows);
