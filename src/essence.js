@@ -9,15 +9,15 @@ var Essence = function(meta, params, joinParams, prefix) {
 	
 	var inited = false;
 	var props = [];
-    for (var property in meta.fields)
-        props.push(property);
+		for (var property in meta.fields)
+			props.push(property);
 	
-    if (meta.extraFields != undefined)
-        for (var extraProperty in meta.extraFields)
-            props.push(extraProperty);
-    
+		if (meta.extraFields != undefined)
+			for (var extraProperty in meta.extraFields)
+				props.push(extraProperty);
+		
 	for(var i = 0; i < props.length; i++){
-        var property = props[i];
+		var property = props[i];
 		if(params[property] != null && params[property] != undefined){
 			this[property] = params[property];	
 		}
@@ -37,16 +37,16 @@ var Essence = function(meta, params, joinParams, prefix) {
 		var join = this.getJoinParams( joinParams[joinIndex] );
 		try{
 			var joineEssence = new Essence(join.essence, params, null, join.prefix);
-            var fieldName =
-                join.fieldName
-                    ? join.fieldName
-                    : join.essence.name;
+			var fieldName =
+					join.fieldName
+							? join.fieldName
+							: join.essence.name;
 
 			this[fieldName] = [joineEssence];
 		}
 		catch(err){ if(this.jorm.log){ console.error(err); } }
 	}
-        
+				
 	if(this.init) this.init(params);
 }
 
@@ -276,13 +276,13 @@ Essence.get = function(params, done) {
 					if(essences[j].id && newEssence.id && essences[j].id == newEssence.id){ // Такой объект уже есть
 
 						for(var joinIndex = 0; joinIndex < (params.join || []).length; joinIndex++){ // Все сджойненые объекты newEssence добавляем в найденный essences[j]
-                            var joinedName =
-                                params.join[joinIndex].fieldName
-                                    ? params.join[joinIndex].fieldName
-                                    : params.join[joinIndex].essence.name;
+							var joinedName =
+									params.join[joinIndex].fieldName
+										? params.join[joinIndex].fieldName
+										: params.join[joinIndex].essence.name;
 
-                            for(var joinedObjectIndex = 0; joinedObjectIndex < (newEssence[ joinedName ] || []).length; joinedObjectIndex++){ // Все сджойненные объекты из newEssence одного типа
-                                essences[j][joinedName].push( newEssence[ joinedName ][joinedObjectIndex] );
+							for(var joinedObjectIndex = 0; joinedObjectIndex < (newEssence[ joinedName ] || []).length; joinedObjectIndex++){ // Все сджойненные объекты из newEssence одного типа
+								essences[j][joinedName].push( newEssence[ joinedName ][joinedObjectIndex] );
 							}
 						}
 
@@ -348,7 +348,7 @@ Essence.getCacheKey = function (query, params, callback) {
 	function attachTagsMark(tagsArr, result, callback) {
 		
 		if (tagsArr == undefined || tagsArr.length == 0) {
-				callback(result); return;
+			callback(result); return;
 		}
 		
 		last = tagsArr.pop(); 
@@ -474,7 +474,7 @@ Essence.prototype.save = function(done, cacheWasChecked, initialContext) {
 			var insertString = 'INSERT INTO "' + _this.table + '" (' + insertFields + ') VALUES (' + insertValues +') RETURNING *';
 
 			if(_this.jorm.logSQL) console.log(insertString, insertParams);
-            
+						
 			client.query(insertString, insertParams, function(err, result) {
 				
 				if(err){
@@ -511,7 +511,7 @@ Essence.prototype.delete = function(done, cacheWasChecked, initialContext) {
 		if(err){ console.error(err); doneDB(); done(err); return; }
 
 		if(_this.jorm.log) console.info('Start delete ', _this.table);
-        
+				
 		client.query('DELETE FROM "' + _this.table + '" WHERE id = $1', [_this.id], function(err, result) {
 			doneDB();
 			if(err){ console.error('Cant delete ' + _this.table, err); done(err); return; }
@@ -532,20 +532,20 @@ Essence.prototype.getPublicInternal = function(fields) {
 
 	for(var property in this){
 		if(
-				(this[property] instanceof Array && this[property].length > 0 && this[property][0].getPublic) ||
-				(this[property] instanceof Array && this[property].length == 0)
+			(this[property] instanceof Array && this[property].length > 0 && this[property][0].getPublic) ||
+			(this[property] instanceof Array && this[property].length == 0)
 		) {
 			var joinedEssences = [];
 			for(var j=0; j< this[property].length; j++){
-				joinedEssences.push(this[property][j].getPublic());
+				joinedEssences.push(this[property][j].getPublic ? this[property][j].getPublic() : this[property][j]);
 			}
-            if (joinedEssences.length > 1)
-                publicThis[property] = joinedEssences;
-            else
-                if (joinedEssences.length == 1)
-                    publicThis[property] = joinedEssences[0];
-                else
-                    publicThis[property] = [];
+			if (joinedEssences.length > 1)
+				publicThis[property] = joinedEssences;
+			else
+				if (joinedEssences.length == 1)
+					publicThis[property] = joinedEssences[0];
+				else
+					publicThis[property] = [];
 		}
 	}
 
