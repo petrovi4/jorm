@@ -531,21 +531,26 @@ Essence.prototype.getPublicInternal = function(fields) {
 	}
 
 	for(var property in this){
-		if(
-			(this[property] instanceof Array && this[property].length > 0 && this[property][0].getPublic) ||
-			(this[property] instanceof Array && this[property].length == 0)
-		) {
+		if( (this[property] instanceof Array && this[property].length > 0 && this[property][0].getPublic) ||
+				(this[property] instanceof Array && this[property].length == 0) ) {
+
 			var joinedEssences = [];
 			for(var j=0; j< this[property].length; j++){
-				joinedEssences.push(this[property][j].getPublic ? this[property][j].getPublic() : this[property][j]);
+				
+				var publicProperty = 
+					(typeof(this[property][j].getPublic) == "function") ? 
+						this[property][j].getPublic() : 
+						this[property][j]
+
+				joinedEssences.push(publicProperty);
 			}
+
 			if (joinedEssences.length > 1)
 				publicThis[property] = joinedEssences;
+			else if (joinedEssences.length == 1)
+				publicThis[property] = joinedEssences[0];
 			else
-				if (joinedEssences.length == 1)
-					publicThis[property] = joinedEssences[0];
-				else
-					publicThis[property] = [];
+				publicThis[property] = [];
 		}
 	}
 
