@@ -6,9 +6,12 @@ var Memcached = require('memcached');
 Array.prototype.getPublic = function() {
 	var publicArr = [];
 	for(var i=0; i<this.length; i++){
-		if(this[i].getPublic){
-			publicArr.push(this[i].getPublic());
-		}
+		var publicItem = 
+			(typeof(this[i].getPublic) == "function") ? 
+				this[i].getPublic() : 
+				this[i]
+
+		publicArr.push(publicItem);
 	}
 	return publicArr;
 }

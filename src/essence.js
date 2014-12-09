@@ -531,7 +531,7 @@ Essence.prototype.getPublicInternal = function(fields) {
 	}
 
 	for(var property in this){
-		if( (this[property] instanceof Array && this[property].length > 0 && this[property][0].getPublic) ||
+		if( (this[property] instanceof Array && this[property].length > 0 && typeof(this[property][0].getPublic) == "function") ||
 				(this[property] instanceof Array && this[property].length == 0) ) {
 
 			var joinedEssences = [];
@@ -552,6 +552,7 @@ Essence.prototype.getPublicInternal = function(fields) {
 			else
 				publicThis[property] = [];
 		}
+		else {console.log('Skip', property);}
 	}
 
 	fields = fields || [];
