@@ -80,6 +80,11 @@ Essence.whereParamInternal = function(prefix, param, value, index) {
 		whereParams.push(value.value);
 		index++;
 	}
+	else if(value.between){
+		whereClause += '"' + prefix + '"."' + (value.field || param) + '" between $' + (index++).toString() + ' and $' + (index++).toString();
+		whereParams.push(value.between);
+		whereParams.push(value.and);
+	}
 	else if(param == 'search' && value.columns && value.value){
 		for(var i=0; i < value.columns.length; i++){
 			whereClause += (whereClause.length == 0 ? '(' : ' OR ') + 'LOWER("' + prefix + '"."' + value.columns[i] + '") LIKE $' + index.toString();
