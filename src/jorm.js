@@ -81,6 +81,15 @@ module.exports = function(jormParams, config) {
 			}
 			return result;
 		};
+
+		_this[ essenceMeta ].getPublicArrSecure = function(arr, fields){
+			var result = [];
+			for(var i=0; i<arr.length; i++){
+				var publicEssence = arr[i].getPublicSecure(fields);
+				result.push(publicEssence);
+			}
+			return result;
+		};
 		
 		['Add', 'Save'].forEach(function (operation) {
 			_this[essenceMeta]['before' + operation] =
