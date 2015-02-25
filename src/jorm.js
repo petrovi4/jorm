@@ -3,12 +3,12 @@ var extend = require('extend');
 var async = require('async');
 var Memcached = require('memcached');
 
-Array.prototype.getPublic = function() {
+Array.prototype.getPublic = function(fields, params) {
 	var publicArr = [];
 	for(var i=0; i<this.length; i++){
 		var publicItem = 
 			(typeof(this[i].getPublic) == "function") ? 
-				this[i].getPublic() : 
+				this[i].getPublic(fields, params) : 
 				this[i]
 
 		publicArr.push(publicItem);
