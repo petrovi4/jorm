@@ -443,7 +443,10 @@ Essence.prototype.save = function(done, cacheWasChecked, initialContext) {
 				if(property == 'id' || property == 'created') continue;
 
 				updateFields += (updateFields.length > 0 ? ', ' : '') + property + '=$' + i.toString();
-				updateParams.push(_this[property]);
+
+				var paramFromField = (typeof(_this[property]) == 'object' && _this[property] != null) ? JSON.stringify( _this[property]) : _this[property];
+				updateParams.push( paramFromField );
+
 				i++;
 			}
 
@@ -476,7 +479,10 @@ Essence.prototype.save = function(done, cacheWasChecked, initialContext) {
 
 				insertFields += (insertFields.length > 0 ? ', ' : '') + property;
 				insertValues += (insertValues.length > 0 ? ', ' : '') + '$' + i.toString();
-				insertParams.push(_this[property]);
+
+				var paramFromField = (typeof(_this[property]) == 'object' && _this[property] != null) ? JSON.stringify( _this[property]) : _this[property];
+				insertParams.push( paramFromField );
+
 				i++;
 			}
 
