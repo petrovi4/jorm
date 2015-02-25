@@ -542,7 +542,7 @@ Essence.prototype.delete = function(done, cacheWasChecked, initialContext) {
 Essence.prototype.getPublicInternal = function(fields, params) {
 	var publicThis = {};
 	for(var property in this.fields){
-		if(this.fields.public) publicThis[property] = this[property];
+		if(this.fields[property].public) publicThis[property] = this[property];
 	}
 
 	console.log('publicThis', publicThis);
