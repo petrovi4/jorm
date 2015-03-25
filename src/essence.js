@@ -160,6 +160,8 @@ Essence.getJoinParams = function(join) {
 
 	if(typeof joinObj.essence == 'string') joinObj.essence = this.jorm[joinObj.essence];
 
+	if(!joinObj.table || typeof joinObj.table != 'string') joinObj.table = this.table;
+
 	if(!joinObj.field) joinObj.field = joinObj.essence.table + '_id';
 	if(typeof joinObj.field == 'string') joinObj.field = [joinObj.field];
 
@@ -196,7 +198,7 @@ Essence.get = function(params, done) {
 			tablesJoin += ' ' + join.joinClause + ' "' + join.essence.table + '" as "' + join.prefix + '"';
 			tablesJoin += ' ON (';
 			for(var i=0; i<join.field.length; i++){
-				tablesJoin += (i==0?'':' AND ') + '"' + this.table + '"."' + join.field[i] + '" = "' + join.prefix + '"."' + join.joinField[i] + '"';
+				tablesJoin += (i==0?'':' AND ') + '"' + join.table + '"."' + join.field[i] + '" = "' + join.prefix + '"."' + join.joinField[i] + '"';
 			}
 			tablesJoin += ')';
 
