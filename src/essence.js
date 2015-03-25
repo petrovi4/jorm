@@ -548,8 +548,6 @@ Essence.prototype.getPublicInternal = function(fields, params) {
 		if(this.extraFields[property].public) publicThis[property] = this[property];
 	}
 
-	console.log('publicThis', publicThis);
-
 	for(var property in this){
 		if( (this[property] instanceof Array && this[property].length > 0 && typeof(this[property][0].getPublic) == "function") ||
 				(this[property] instanceof Array && this[property].length == 0) ) {
