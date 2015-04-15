@@ -20,14 +20,16 @@ var Essence = function(meta, params, joinParams, prefix) {
 		var property = props[i];
 		if(params[property] != null && params[property] != undefined){
 			this[property] = params[property];	
+			inited = true;
 		}
 		else if(params[prefix + '.' + property] != null && params[prefix + '.' + property] != undefined){
 			this[property] = params[prefix + '.' + property];
+			inited = true;
 		}
 		else if(!prefix){ // если есть prefix - значит инициализируем сджойненую таблицу, а значит оригинальную таблицу не просматриваем
 			this[property] = params[meta.table + '.' + property];
+			inited = true;
 		}
-		inited |= !!this[property];
 	}
 	if(!inited){
 		throw new Error('NOT_INITIALIZED');
