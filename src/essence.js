@@ -18,15 +18,15 @@ var Essence = function(meta, params, joinParams, prefix) {
 		
 	for(var i = 0; i < props.length; i++){
 		var property = props[i];
-		if(params[property] != null && params[property] != undefined){
-			this[property] = params[property];	
-			inited = true;
-		}
-		else if(params[prefix + '.' + property] != null && params[prefix + '.' + property] != undefined){
+		if(prefix && params[prefix + '.' + property] != null && params[prefix + '.' + property] != undefined){
 			this[property] = params[prefix + '.' + property];
 			inited = true;
 		}
-		else if(!prefix){ // если есть prefix - значит инициализируем сджойненую таблицу, а значит оригинальную таблицу не просматриваем
+		else if(!prefix && params[property] != null && params[property] != undefined){
+			this[property] = params[property];	
+			inited = true;
+		}
+		else if(!prefix){ // если нет prefix - значит инициализируем сджойненую таблицу, а значит оригинальную таблицу не просматриваем
 			this[property] = params[meta.table + '.' + property];
 			inited = true;
 		}
