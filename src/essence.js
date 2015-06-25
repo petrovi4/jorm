@@ -49,24 +49,26 @@ var Essence = function(meta, params, joinParams, prefix) {
 	}
 	if(!inited){
 		var error = new Error('NOT_INITIALIZED');
-		console.error('Essence not created\n', meta.name, '\n', params, joinParams, '\n', error);
+		console.error( logPrefix, 'Essence not created\n', meta.name, '\n', params, joinParams, prefix, '\n', error, logPostfix);
 		throw error;
 	}
 
 	for(var joinIndex=0; joinIndex < (joinParams||[]).length; joinIndex++){
 		var join = this.getJoinParams( joinParams[joinIndex] );
 		try{
-			var joineEssence = new Essence(join.essence, params, null, join.prefix);
-			var fieldName =
-					join.fieldName
-							? join.fieldName
-							: join.essence.name;
+			if(this[join.field]){
+				var joineEssence = new Essence(join.essence, params, null, join.prefix);
+				var fieldName =
+						join.fieldName
+								? join.fieldName
+								: join.essence.name;
 
-			this[fieldName] = [joineEssence];
+				this[fieldName] = [joineEssence];
+			}
 		}
 		catch(err){ if(this.jorm.log){ console.error(err); } }
 	}
-				
+
 	if(this.init) this.init(params);
 }
 
