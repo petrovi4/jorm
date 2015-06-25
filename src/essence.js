@@ -56,7 +56,7 @@ var Essence = function(meta, params, joinParams, prefix) {
 	for(var joinIndex=0; joinIndex < (joinParams||[]).length; joinIndex++){
 		var join = this.getJoinParams( joinParams[joinIndex] );
 		try{
-			if(this[join.field]){
+			if(this[join.field] || join.table != this.table){
 				var joineEssence = new Essence(join.essence, params, null, join.prefix);
 				var fieldName =
 						join.fieldName
