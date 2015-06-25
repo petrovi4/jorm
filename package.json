@@ -1,38 +1,34 @@
 {
-  "name": "jorm",
-  "description": "Simple orm - just orm",
-  "main": "./src/jorm",
-  "author": {
-    "name": "Alexey Talkan"
-  },
-  "version": "1.3.8",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/petrovi4/jorm.git"
-  },
-  "bugs": {
-    "url": "https://github.com/petrovi4/jorm/issues"
-  },
-  "devDependencies": {
-    "pg": "*",
-    "extend": "*",
-    "async": "*",
-    "should": "*",
-    "mocha": "*",
-    "supertest": "*",
-    "node-uuid": "*"
-  },
-  "readmeFilename": "README.md",
-  "homepage": "https://github.com/petrovi4/jorm",
-  "dependencies": {
-    "pg": "3.6.3",
-    "extend": "1.2.1",
-    "async": "0.7.0",
-    "should": "3.3.0",
-    "supertest": "0.10.0",
-    "mocha": "1.18.2",
-    "node-uuid": "1.4.1",
-    "memcached": "0.2.8",
-    "crypto": "0.0.3"
-  }
+	"name": "jorm",
+	"description": "Simple orm - just orm",
+	"main": "./src/jorm",
+	"author": {
+		"name": "Alexey Talkan"
+	},
+	"version": "1.4.0",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/petrovi4/jorm.git"
+	},
+	"bugs": {
+		"url": "https://github.com/petrovi4/jorm/issues"
+	},
+	"devDependencies": {
+		"pg": "*",
+		"extend": "*",
+		"async": "*",
+		"should": "*",
+		"mocha": "*",
+		"supertest": "*",
+		"node-uuid": "*"
+	},
+	"readmeFilename": "README.md",
+	"homepage": "https://github.com/petrovi4/jorm",
+	"dependencies": {
+		"pg": "4.4.0",
+		"extend": "1.2.1",
+		"async": "1.2.1",
+		"node-uuid": "1.4.3",
+		"lodash": "2.10.1"
+	}
 }

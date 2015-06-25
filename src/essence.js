@@ -3,8 +3,24 @@ var extend = require('extend');
 var uuid = require('node-uuid');
 var crypto = require('crypto');
 
+
+jormShortCache = 5;
+jormMediumCache = 30;
+jormLongCache = 120;
+jormCacheForever = 999;
+
+cachePolicy = {
+	jormNoCache: 0,
+	jormShortCache: jormShortCache,
+	jormMediumCache: jormMediumCache,
+	jormLongCache: jormLongCache,
+	jormCacheForever: 999
+}
+
+var logPrefix = "\n\n[------------------ JORM ------------------ \n";
+var logPostfix = "\n------------------ JORM ------------------]\n\n";
+
 var Essence = function(meta, params, joinParams, prefix) {	
-	//console.log('Create new', meta, '\n with params', params, '\nwith join params', joinParams, '\n and prefix', prefix);
 	extend(this, meta);
 	
 	var inited = false;
@@ -56,8 +72,6 @@ var Essence = function(meta, params, joinParams, prefix) {
 Essence.whereParamInternal = function(prefix, param, value, index) {
 	var whereClause = '';
 	var whereParams = [];
-
-	if(this.jorm.log) console.log('Process param', prefix, param, value, index);
 
 	if( value == undefined && value != null ) return;
 	if( param.toString().indexOf('order by') != -1 ) return;
@@ -123,8 +137,6 @@ Essence.whereParam = function(prefix, param, value, index) {
 
 
 Essence.whereInternal = function(prevWhere, prefix, params) {
-	// console.log('Where internal', prevWhere, this.table, prefix, params);
-
 	for(var whereParam in params){
 		var where = null;
 		if(this.whereParam){
@@ -150,8 +162,6 @@ Essence.where = function(prevWhere, prefix, params) {
 
 
 Essence.selectFieldsInternal = function(params, prefix) {
-	// console.log('params, prefix', params, prefix);
-
 	prefix = prefix || this.table;
 	var selectFields = '';
 	for(var property in this.fields){
@@ -188,7 +198,7 @@ Essence.getJoinParams = function(join) {
 
 
 Essence.get = function(params, done) {
-	if(this.jorm.log) console.log('Start get', params);	
+	if(this.jorm.log) console.log(logPrefix, 'Jorm start get', this.table, params, logPostfix);	
 	var _this = this;
 	
 	if (params.query == undefined) {
@@ -204,7 +214,6 @@ Essence.get = function(params, done) {
 		var joinsCache = {};
 
 		for(var joinIndex=0; joinIndex < (params.join || []).length; joinIndex++){
-			if(this.jorm.log) console.log('joinIndex', joinIndex);
 			var join = params.join[joinIndex] = this.getJoinParams(params.join[joinIndex]);
 
 			tablesJoin += ' ' + join.joinClause + ' "' + join.essence.table + '" as "' + join.prefix + '"';
@@ -271,8 +280,8 @@ Essence.get = function(params, done) {
 		
 		var whereClauseConcat = (where.whereClause.length > 0 ? ' WHERE ' : '') + where.whereClause;
 		var queryString = 'SELECT '+ selectFields +' FROM "' + _this.table + '"' + tablesJoin + whereClauseConcat + orderClause + limitClause + offsetClause;
-		
-	} else {
+	} 
+	else {
 		queryString = params.query;
 		where = {whereParams: params.where};
 	}
@@ -280,14 +289,16 @@ Essence.get = function(params, done) {
 	this.jorm.dbLabmda(function(err, client, doneDB) {
 		if(err){ console.error(err); doneDB(); done(err); return; }
 
-		if(_this.jorm.logSQL) console.log(queryString, where.whereParams);
+		var cacheKey = _this.getQueryCacheKey(queryString, where.whereParams);
+
+		if(_this.jorm.logSQL) console.log(logPrefix, 'Start GET by SQL query with cacheKey', cacheKey, '\n', queryString, where.whereParams, logPostfix);
 
 		// <<< helpers stuff
-		function buildEssences(list) {
+		function buildEssences(list, skipCache) {
 			var essences = [];
 			
-			for(var i=0; i<list.length; i++){
-				
+			for(var i=0; i<(list || []).length; i++){
+
 				var newEssence = new Essence(_this, list[i], params.join);
 
 				// Ищем, может из-за джойна этот объект уже создавался
@@ -301,7 +312,11 @@ Essence.get = function(params, done) {
 										: params.join[joinIndex].essence.name;
 
 							for(var joinedObjectIndex = 0; joinedObjectIndex < (newEssence[ joinedName ] || []).length; joinedObjectIndex++){ // Все сджойненные объекты из newEssence одного типа
-								essences[j][joinedName].push( newEssence[ joinedName ][joinedObjectIndex] );
+								var joinedEssence = newEssence[ joinedName ][joinedObjectIndex];
+								essences[j][joinedName].push( joinedEssence );
+
+								console.log(logPrefix, 'Set dependence for', joinedEssence.meta.name, '-', joinedEssence.id, 'from', cacheKey, logPostfix);
+								if(_this.jorm.redis && !skipCache) joinedEssence.addDependence(cacheKey); // к сджойненному объекту добавляем зависимость от cacheKey оригинального запроса, чтобы сбросить результат оригинального запроса из кэша, в случае если изменится текущий сджойненный essence-объект
 							}
 						}
 
@@ -311,6 +326,9 @@ Essence.get = function(params, done) {
 				}
 
 				if(newEssence){
+					console.log(logPrefix, 'Set dependence for', newEssence.table, '-', newEssence.id, 'from', cacheKey, logPostfix);
+					if(_this.jorm.redis && !skipCache) newEssence.addDependence(cacheKey);
+
 					essences.push( newEssence );	
 				}
 			}
@@ -328,114 +346,51 @@ Essence.get = function(params, done) {
 		}
 		// >>> helpers stuff
 		
-		if (!_this.jorm.useCache) {
+		if (!_this.jorm.redis) {
 			//Usual and simple way
 			fetchFromDb(queryString, where.whereParams, function (rows) {
 				var essences = buildEssences(rows);
-				if(_this.jorm.log) console.info('Getted '+ _this.table, essences.length);	
+				console.log(logPrefix, 'Getted from db', _this.table, essences.length, logPostfix);
 
 				done && done(err, essences);
 			});
-		} else {
-			_this.getCacheKey(queryString, where.whereParams, function (index) {
-				_this.jorm.memcache.get(index, function (err, data) {
-					if (!err && data != false) {
-						doneDB();
-						if (_this.jorm.log) {console.info('Getted from cache ' + data)}
-						done(err, buildEssences(data));
-					} else {
-						if (err && _this.jorm.log) {
-							console.log('Cache error - ' + err);
-						}
+		} 
+		else {
+			_this.jorm.redis.get(cacheKey, function (err, data) {
+				if(err) console.error('Error get from cache', err);
 
-						if (_this.jorm.log) {console.info('Cache is empty, fetching from db')}
-						
-						fetchFromDb(queryString, where.whereParams, function (rows) {
-							_this.jorm.memcache.set(index, rows, 60*60*24, function (err) {
-								if (err) {/*can't set value to memcache because of its size. So what?!*/ console.info(err); err = null;}
-								
-								var essences = buildEssences(rows);
-								if(_this.jorm.log) console.info('Getted '+ _this.table, essences.length);	
+				if(data){
+					doneDB();
+					var essences = buildEssences(JSON.parse(data), true);
 
-								done && done(err, essences);
-							});
-						});
-					}
-				});
+					console.info(logPrefix, 'Getted from cache', cacheKey, '\n', data, essences.length, logPostfix);
+					done(null, essences);
+				}
+				else{
+					console.info(logPrefix, 'Cache is empty, fetching from db', cacheKey, logPostfix);
+
+					fetchFromDb(queryString, where.whereParams, function (rows) {
+
+						_this.jorm.redis.set(cacheKey, JSON.stringify(rows));
+						_this.jorm.redis.expire(cacheKey, 60*30); // 30 minutes
+
+						var essences = buildEssences(rows);
+
+						console.info(logPrefix, 'Getted from db', _this.table, essences.length, logPostfix);	
+
+						done && done(err, essences);
+					});
+				}
 			});
 		}
 	});
 }
 
-Essence.getCacheKey = function (query, params, callback) {
-	function attachTagsMark(tagsArr, result, callback) {
-		
-		if (tagsArr == undefined || tagsArr.length == 0) {
-			callback(result); return;
-		}
-		
-		last = tagsArr.pop(); 
-		
-		this.jorm.memcache.get(last, function(err, getResult) {
-			if (err) {console.log(err);}
-			
-			if (!getResult) {
-				createNew(last, result, tagsArr, callback);
-				return;
-			} else {
-				result += '_' + getResult ;
-				attachTagsMark(tagsArr, result, callback);
-			}
-		});
-	}
+Essence.prototype.save = function(done) {
+	var _this = this;
 	
-	function createNew(index, result, tagsArr, callback) {
-		var value = Math.floor((Math.random()*10000)); 
-		this.jorm.memcache.set(index, value, 60*60*24, function (err) {
-			if (err) {
-				console.log(err);
-			}
-			result += '_' + value;
-			attachTagsMark(tagsArr, result, callback);
-		});
-	}
-	
-	var shasum = crypto.createHash('sha1');
-	
-	attachTagsMark(
-		this.tags.slice(),
-		this.name + '_' + shasum.update(query.toString() + params.toString()).digest('hex'), 
-		callback
-	);
-
-}
-
-Essence.prototype.cacheDevalidate = function(tagArr, callback, callbackOfCallback, context) {
-	function devalidate(tagArr) {
-		if (tagArr == undefined || tagArr.length == 0) {
-			callback(callbackOfCallback, true, context);
-			return;
-		}
-
-		this.jorm.memcache.incr(tagArr.pop(), 1, function(err) {
-			if (err) { console.log(err); }
-			devalidate(tagArr);
-		});
-	}
-			
-	devalidate(tagArr);
-}
-
-Essence.prototype.save = function(done, cacheWasChecked, initialContext) {
-	var _this = (initialContext == undefined) ? this : initialContext;
-	
-	if (cacheWasChecked == undefined) {
-		if (!this.jorm.useCache) {
-			this.save(done, true);
-		} else {
-			this.cacheDevalidate(this.tags.slice(), this.save, done, _this);
-		}
-		return;
+	if(this.jorm.redis) {
+		this.cacheInvalidate();
 	}
 	
 	var dbFunctionName = 
@@ -447,7 +402,7 @@ Essence.prototype.save = function(done, cacheWasChecked, initialContext) {
 		if(err){ console.error(err); doneDB(); done(err); return; }
 
 		if(_this.id){ // update
-			if(_this.jorm.log) console.info('Start update ', _this.table);
+			if(_this.jorm.log) console.info(logPrefix, 'Start update ', _this.table, logPostfix);
 		
 			var updateFields = '';
 			var i = 2;
@@ -466,22 +421,20 @@ Essence.prototype.save = function(done, cacheWasChecked, initialContext) {
 
 			var updateString = 'UPDATE "'+ _this.table +'" SET '+ updateFields +' WHERE id=$1';
 
-			if(_this.jorm.logSQL) console.log(updateString, updateParams);
+			if(_this.jorm.logSQL) console.log(logPrefix, 'Executing SQL UPDATE query\n', updateString, updateParams, logPostfix);
 			
 			client.query(updateString, updateParams, function(err, result) {
 				if(err){
-					console.error('Cant update\n', updateString, '\n' + err); 
+					console.error(logPrefix, 'Cant update\n', updateString, '\n' + err, logPostfix); 
 					aftersave(err, client, done, err, result, doneDB);
 					return; 
 				}
 
-				if(_this.jorm.log) console.info('Updated', _this.table);
-				//err, client, callback, callbackErr, callbackData, doneDB
 				aftersave(null, client, done, null, _this, doneDB);		
 			});
 		}
 		else{ // insert
-			if(_this.jorm.log) console.info('Start insert ', _this.table);
+			if(_this.jorm.log) console.info(logPrefix, 'Start insert ', _this.table, logPostfix);
 
 			var insertFields = '';
 			var insertValues = '';
@@ -502,7 +455,7 @@ Essence.prototype.save = function(done, cacheWasChecked, initialContext) {
 
 			var insertString = 'INSERT INTO "' + _this.table + '" (' + insertFields + ') VALUES (' + insertValues +') RETURNING *';
 
-			if(_this.jorm.logSQL) console.log(insertString, insertParams);
+			if(_this.jorm.logSQL) console.log(logPrefix, 'Executing SQL INSERT query\n', insertString, insertParams, logPostfix);
 						
 			client.query(insertString, insertParams, function(err, result) {
 				
@@ -516,7 +469,6 @@ Essence.prototype.save = function(done, cacheWasChecked, initialContext) {
 					_this[key] = result.rows[0][key];
 				}
 				
-				if(_this.jorm.log) console.info('Inserted', _this.table);
 				aftersave(null, client, done, null, _this, doneDB);
 			});
 		}
@@ -525,27 +477,21 @@ Essence.prototype.save = function(done, cacheWasChecked, initialContext) {
 };
 
 Essence.prototype.delete = function(done, cacheWasChecked, initialContext) {
-	var _this = (initialContext == undefined) ? this : initialContext;
+	var _this = this;
 	
-	if (cacheWasChecked == undefined) {
-		if (!this.jorm.useCache) {
-			this.delete(done, true);
-		} else {
-			this.cacheDevalidate(this.tags.slice(), this.delete, done, _this);
-		}
-		return;
+	if(this.jorm.redis) {
+		this.cacheInvalidate();
 	}
 
 	_this.jorm.dbLabmda(function(err, client, doneDB) {
 		if(err){ console.error(err); doneDB(); done(err); return; }
 
-		if(_this.jorm.log) console.info('Start delete ', _this.table);
+		if(_this.jorm.log) console.info(logPrefix, 'Start delete ', _this.table, logPostfix);
 				
 		client.query('DELETE FROM "' + _this.table + '" WHERE id = $1', [_this.id], function(err, result) {
 			doneDB();
 			if(err){ console.error('Cant delete ' + _this.table, err); done(err); return; }
 
-			if(_this.jorm.log) console.info('Deleted', _this.table);
 			done && done(err, _this);
 		});
 		
@@ -599,5 +545,49 @@ Essence.prototype.getPublicInternal = function(fields, params) {
 Essence.prototype.getPublic = function (fields, params) {
 	return this.getPublicInternal(fields, params);
 }
+
+// -------------------- CACHE --------------------
+Essence.getQueryCacheKey = function (query, queryParams) {
+	var shasum = crypto.createHash('sha1');
+	return shasum.update(query.toString() + queryParams.toString()).digest('hex');
+}
+
+Essence.prototype.getCacheKey = function () {
+	return this.table + '_' + this.id;
+}
+
+Essence.prototype.getDependencesCacheKey = function () {
+	return this.getCacheKey() + '_deps';
+}
+
+Essence.prototype.addDependence = function (queryCacheKey, callback) {
+	var _this = this;
+	var depsCacheKey = this.getDependencesCacheKey();
+
+	this.jorm.redis.append(depsCacheKey, "|"+queryCacheKey, function(err, data) {
+		if(err) console.error(err);
+		callback && callback();
+	});
+}
+
+Essence.prototype.cacheInvalidate = function(callback) {
+
+	var _this = this;
+	this.jorm.redis.get(this.getDependencesCacheKey(), function(err, data) {
+		if(err) console.error(err);
+
+		data = _.compact(data && data.split('|'));
+		data.push(_this.getCacheKey());
+		data.push(_this.getDependencesCacheKey());
+
+		console.log(logPrefix, 'Invalidating', _this.table, _this.id, 'by dependences', data);
+
+		_this.jorm.redis.del(data, function(err) {
+			console.log('err', err, 'Invalidated', data);
+		});
+		callback && callback();
+	})
+}
+
 
 module.exports = Essence;

@@ -1,7 +1,7 @@
 var pg = require('pg');
 var extend = require('extend');
 var async = require('async');
-var Memcached = require('memcached');
+var redis = require('redis');
 
 Array.prototype.getPublic = function(fields, params) {
 	var publicArr = [];
@@ -32,8 +32,8 @@ module.exports = function(jormParams, config) {
 		callback(callbackErr, callbackData);
 	}
         
-	this.useCache = (jormParams.cache != null);
-	this.memcache = (jormParams.cache);
+	this.useCache = (jormParams.cache != null && jormParams.cache.client == 'redis');
+	this.redis = jormParams.cache;
 	
 	// console.log('connectionString', this.connectionString);
 	// console.log('logSQL', this.logSQL);
