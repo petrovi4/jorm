@@ -48,8 +48,9 @@ var Essence = function(meta, params, joinParams, prefix) {
 		}
 	}
 	if(!inited){
-		console.error('Essence not created\n', meta.name, '\n', params, joinParams);
-		throw new Error('NOT_INITIALIZED');
+		var error = new Error('NOT_INITIALIZED');
+		console.error('Essence not created\n', meta.name, '\n', params, joinParams, '\n', error);
+		throw error;
 	}
 
 	for(var joinIndex=0; joinIndex < (joinParams||[]).length; joinIndex++){
