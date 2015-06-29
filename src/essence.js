@@ -3,20 +3,6 @@ var extend = require('extend');
 var uuid = require('node-uuid');
 var crypto = require('crypto');
 
-
-jormShortCache = 5;
-jormMediumCache = 30;
-jormLongCache = 120;
-jormCacheForever = 999;
-
-cachePolicy = {
-	jormNoCache: 0,
-	jormShortCache: jormShortCache,
-	jormMediumCache: jormMediumCache,
-	jormLongCache: jormLongCache,
-	jormCacheForever: 999
-}
-
 var logPrefix = "\n\n[------------------ JORM ------------------ \n";
 var logPostfix = "\n------------------ JORM ------------------]\n\n";
 
@@ -82,6 +68,7 @@ Essence.whereParamInternal = function(prefix, param, value, index) {
 	if( param == 'join' ) return;
 	if( param =='limit' ) return;
 	if( param =='offset' ) return;
+	if( param =='cachePolicy' ) return;
 
 	if(value == null){
 		whereClause += '"' + prefix + '"."' + param + '" is null';
@@ -204,6 +191,8 @@ Essence.getJoinParams = function(join) {
 Essence.get = function(params, done) {
 	if(this.jorm.log) console.log(logPrefix, 'Jorm start get', this.table, params, logPostfix);	
 	var _this = this;
+
+	var thisCachePolicy = params.cachePolicy || this.cachePolicy || jormCachePolicy.default;
 	
 	if (params.query == undefined) {
 		var selectFields = this.selectFields(params);
@@ -319,7 +308,6 @@ Essence.get = function(params, done) {
 								var joinedEssence = newEssence[ joinedName ][joinedObjectIndex];
 								essences[j][joinedName].push( joinedEssence );
 
-								console.log(logPrefix, 'Set dependence for', joinedEssence.meta.name, '-', joinedEssence.id, 'from', cacheKey, logPostfix);
 								if(_this.jorm.redis && !skipCache) joinedEssence.addDependence(cacheKey); // к сджойненному объекту добавляем зависимость от cacheKey оригинального запроса, чтобы сбросить результат оригинального запроса из кэша, в случае если изменится текущий сджойненный essence-объект
 							}
 						}
@@ -330,7 +318,6 @@ Essence.get = function(params, done) {
 				}
 
 				if(newEssence){
-					console.log(logPrefix, 'Set dependence for', newEssence.table, '-', newEssence.id, 'from', cacheKey, logPostfix);
 					if(_this.jorm.redis && !skipCache) newEssence.addDependence(cacheKey);
 
 					essences.push( newEssence );	
@@ -375,8 +362,7 @@ Essence.get = function(params, done) {
 
 					fetchFromDb(queryString, where.whereParams, function (rows) {
 
-						_this.jorm.redis.set(cacheKey, JSON.stringify(rows));
-						_this.jorm.redis.expire(cacheKey, 60*30); // 30 minutes
+						_this.putToCache(cacheKey, rows, thisCachePolicy);
 
 						var essences = buildEssences(rows);
 
@@ -560,15 +546,52 @@ Essence.prototype.getCacheKey = function () {
 	return this.table + '_' + this.id;
 }
 
+Essence.getTypeDependencesCacheKey = function () {
+	return this.table + '_type_deps';
+}
+
 Essence.prototype.getDependencesCacheKey = function () {
 	return this.getCacheKey() + '_deps';
 }
 
-Essence.prototype.addDependence = function (queryCacheKey, callback) {
+Essence.addTypeDependence = function (releativeObjectCacheKey, callback) {
+	var _this = this;
+	var depsCacheKey = this.getTypeDependencesCacheKey();
+
+	this.jorm.redis.append(depsCacheKey, "|"+releativeObjectCacheKey, function(err, data) {
+		if(err) console.error(err);
+		callback && callback();
+	});
+}
+
+Essence.putToCache = function (cacheKey, object, cachePolicy, callback) {	
+	if(cachePolicy != jormCachePolicy.noCache){
+		this.jorm.redis.set(cacheKey, JSON.stringify(object));
+		this.jorm.redis.expire(cacheKey, 60*cachePolicy);
+
+		console.log(logPrefix, 'Put for', object, 'for cacheKey', cacheKey, 'and policy', cachePolicy, logPostfix);
+	}
+	else{
+		console.log(logPrefix, 'Ignore cache for', object, 'by cache policy', logPostfix);	
+	}
+
+	callback && callback();
+}
+
+
+Essence.prototype.addDependence = function (releativeObjectCacheKey, callback) {	
+	if(this.cachePolicy == jormCachePolicy.noCache){
+		console.log(logPrefix, 'Skip dependence for', this.table, '-', this.id, 'by cache policy', logPostfix);
+		callback && callback();
+		return;
+	}
+
+	console.log(logPrefix, 'Set dependence for', this.table, '-', this.id, 'from', releativeObjectCacheKey, logPostfix);
+
 	var _this = this;
 	var depsCacheKey = this.getDependencesCacheKey();
 
-	this.jorm.redis.append(depsCacheKey, "|"+queryCacheKey, function(err, data) {
+	this.jorm.redis.append(depsCacheKey, "|"+releativeObjectCacheKey, function(err, data) {
 		if(err) console.error(err);
 		callback && callback();
 	});
@@ -577,20 +600,29 @@ Essence.prototype.addDependence = function (queryCacheKey, callback) {
 Essence.prototype.cacheInvalidate = function(callback) {
 
 	var _this = this;
-	this.jorm.redis.get(this.getDependencesCacheKey(), function(err, data) {
+	var depsKeys = [];
+
+	this.jorm.redis.get(this.getTypeDependencesCacheKey(), function(err, data) {
 		if(err) console.error(err);
+	
+		depsKeys.push( data && data.split('|') );
+		depsKeys.push( _this.getTypeDependencesCacheKey() );
 
-		data = _.compact(data && data.split('|'));
-		data.push(_this.getCacheKey());
-		data.push(_this.getDependencesCacheKey());
+		_this.jorm.redis.get(_this.getDependencesCacheKey(), function(err, data) {
+			if(err) console.error(err);
 
-		console.log(logPrefix, 'Invalidating', _this.table, _this.id, 'by dependences', data);
+			depsKeys.push( data && data.split('|') );
+			depsKeys.push(_this.getCacheKey());
+			depsKeys.push(_this.getDependencesCacheKey());
 
-		_this.jorm.redis.del(data, function(err) {
-			console.log('err', err, 'Invalidated', data);
+			depsKeys = _.compact( _.flattenDeep( depsKeys ) );
+
+			_this.jorm.redis.del(depsKeys, function(err) {
+				console.log(logPrefix, 'Invalidated', _this.table, _this.id, 'by dependences', depsKeys);
+			});
+			callback && callback();
 		});
-		callback && callback();
-	})
+	});
 }
 
 

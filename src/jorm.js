@@ -3,6 +3,21 @@ var extend = require('extend');
 var async = require('async');
 var redis = require('redis');
 
+jormCacheShort = 5;
+jormCacheMedium = 30;
+jormCacheLong = 120;
+jormCacheForever = 999;
+
+jormCachePolicy = {
+	noCache: -1,
+	short: jormCacheShort,
+	medium: jormCacheMedium,
+	long: jormCacheLong,
+	forever: 999,
+
+	default: jormCacheMedium
+}
+
 Array.prototype.getPublic = function(fields, params) {
 	var publicArr = [];
 	for(var i=0; i<this.length; i++){
