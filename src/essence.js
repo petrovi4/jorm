@@ -209,10 +209,10 @@ Essence.get = function(params, done) {
 		for(var joinIndex=0; joinIndex < (params.join || []).length; joinIndex++){
 			var join = params.join[joinIndex] = this.getJoinParams(params.join[joinIndex]);
 
-			tablesJoin += ' ' + join.joinClause + ' "' + join.essence.table + '" as "' + join.prefix + '"';
+			tablesJoin += ' ' + join.joinClause + ' "' + join.table + '" as "' + join.prefix + '"';
 			tablesJoin += ' ON (';
 			for(var i=0; i<join.field.length; i++){
-				tablesJoin += (i==0?'':' AND ') + '"' + join.table + '"."' + join.field[i] + '" = "' + join.prefix + '"."' + join.joinField[i] + '"';
+				tablesJoin += (i==0?'':' AND ') + '"' + this.table + '"."' + join.field[i] + '" = "' + join.prefix + '"."' + join.joinField[i] + '"';
 			}
 			tablesJoin += ')';
 
