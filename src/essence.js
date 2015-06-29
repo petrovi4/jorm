@@ -173,7 +173,7 @@ Essence.getJoinParams = function(join) {
 
 	if(typeof joinObj.essence == 'string') joinObj.essence = this.jorm[joinObj.essence];
 
-	if(!joinObj.table || typeof joinObj.table != 'string') joinObj.table = this.table;
+	if(!joinObj.table || typeof joinObj.table != 'string') joinObj.table = joinObj.essence.table;
 
 	if(!joinObj.field) joinObj.field = joinObj.essence.table + '_id';
 	if(typeof joinObj.field == 'string') joinObj.field = [joinObj.field];
