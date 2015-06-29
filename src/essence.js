@@ -42,7 +42,7 @@ var Essence = function(meta, params, joinParams, prefix) {
 	for(var joinIndex=0; joinIndex < (joinParams||[]).length; joinIndex++){
 		var join = this.getJoinParams( joinParams[joinIndex] );
 		try{
-			if(this[join.field] || join.table != this.table){
+			if(this[join.field] || join.essence.table != this.table){
 				var joineEssence = new Essence(join.essence, params, null, join.prefix);
 				var fieldName =
 						join.fieldName
@@ -173,7 +173,7 @@ Essence.getJoinParams = function(join) {
 
 	if(typeof joinObj.essence == 'string') joinObj.essence = this.jorm[joinObj.essence];
 
-	if(!joinObj.table || typeof joinObj.table != 'string') joinObj.table = joinObj.essence.table;
+	if(!joinObj.table || typeof joinObj.table != 'string') joinObj.table = this.table;
 
 	if(!joinObj.field) joinObj.field = joinObj.essence.table + '_id';
 	if(typeof joinObj.field == 'string') joinObj.field = [joinObj.field];
@@ -209,10 +209,10 @@ Essence.get = function(params, done) {
 		for(var joinIndex=0; joinIndex < (params.join || []).length; joinIndex++){
 			var join = params.join[joinIndex] = this.getJoinParams(params.join[joinIndex]);
 
-			tablesJoin += ' ' + join.joinClause + ' "' + join.table + '" as "' + join.prefix + '"';
+			tablesJoin += ' ' + join.joinClause + ' "' + join.essence.table + '" as "' + join.prefix + '"';
 			tablesJoin += ' ON (';
 			for(var i=0; i<join.field.length; i++){
-				tablesJoin += (i==0?'':' AND ') + '"' + this.table + '"."' + join.field[i] + '" = "' + join.prefix + '"."' + join.joinField[i] + '"';
+				tablesJoin += (i==0?'':' AND ') + '"' + join.table + '"."' + join.field[i] + '" = "' + join.prefix + '"."' + join.joinField[i] + '"';
 			}
 			tablesJoin += ')';
 
