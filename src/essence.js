@@ -60,6 +60,27 @@ var Essence = function(meta, params, joinParams, prefix) {
 
 
 Essence.whereParamInternal = function(prefix, param, value, index) {
+
+	function getColumnClause(prefix, column){
+		var columnClause = "";
+
+		if(column.indexOf('+') != -1){
+			for(var subColumn of column.split('+')){
+				columnClause += (columnClause.length > 0 ? ', ' : '') + getColumnClause(prefix, subColumn);
+			}
+
+			columnClause = ' CONCAT(' + columnClause + ')'
+		}
+		else if(column.indexOf('.') != -1){
+			columnClause += '"' + column + '"';
+		}
+		else{
+			columnClause += '"' + prefix + '"."' + column + '"';
+		}
+
+		return columnClause;
+	}
+
 	var whereClause = '';
 	var whereParams = [];
 
@@ -74,7 +95,7 @@ Essence.whereParamInternal = function(prefix, param, value, index) {
 		whereClause += '"' + prefix + '"."' + param + '" is null';
 	}
 	else if(value instanceof Array){
-		whereClause += '"' + prefix + '"."' + param + '" in (';
+		whereClause += getColumnClause(prefix, param) + ' in (';
 		for(var arrayIndex = 0; arrayIndex < value.length; arrayIndex++){
 			whereClause += (arrayIndex == 0 ? '' : ', ') + '$' + index.toString();
 			whereParams.push( value[arrayIndex].id ? value[arrayIndex].id : value[arrayIndex]);
@@ -92,10 +113,11 @@ Essence.whereParamInternal = function(prefix, param, value, index) {
 		whereParams.push(value.between);
 		whereParams.push(value.and);
 	}
+
 	else if(param == 'search' && value.columns && value.value && value.value instanceof Array){
 		for(var j=0; j < value.value.length; j++){
 			for(var i=0; i < value.columns.length; i++){
-				whereClause += (whereClause.length == 0 ? '(' : ' OR ') + 'LOWER("' + prefix + '"."' + value.columns[i] + '") LIKE LOWER($' + index.toString() + ')';
+				whereClause += (whereClause.length == 0 ? '(' : ' OR ') + 'LOWER(' + getColumnClause(prefix, value.columns[i]) + ') LIKE LOWER($' + index.toString() + ')';
 			}
 			whereParams.push(value.value[j]);
 			index++;
@@ -104,22 +126,42 @@ Essence.whereParamInternal = function(prefix, param, value, index) {
 	}
 	else if(param == 'search' && value.columns && value.value){
 		for(var i=0; i < value.columns.length; i++){
-			whereClause += (whereClause.length == 0 ? '(' : ' OR ') + 'LOWER("' + prefix + '"."' + value.columns[i] + '") LIKE LOWER($' + index.toString() + ')';
+			whereClause += (whereClause.length == 0 ? '(' : ' OR ') + 'LOWER(' + getColumnClause(prefix, value.columns[i]) + ') LIKE LOWER($' + index.toString() + ')';
 		}
 		whereClause += ')';
 		whereParams.push(value.value);
 		index++;
 	}
-	else if(param.toString().indexOf('.') != -1){
-		whereClause += '"' + param + '" = $' + index.toString();
-		whereParams.push(value);
-		index++;
-	}
 	else{
-		whereClause += '"' + prefix + '"."' + param + '" = $' + index.toString();
+		whereClause += getColumnClause(prefix, param) + ' = $' + index.toString();
 		whereParams.push(value);
 		index++;
 	}
+
+	// else if(param.toString().indexOf('+') != -1){
+	// 	for(var subField of param.toString().split('+')){
+	// 		var fieldForClause = (subField.indexOf('.') != -1) ? 
+	// 															'"' + param + '"' :
+	// 															'"' + prefix + '"."' + subField + '"';
+
+	// 		whereClause += (whereClause.length > 0 ? ', ' : '') + fieldForClause;
+	// 	}
+
+	// 	whereClause = ' LOWER( CONCAT(' + whereClause + ')) LIKE LOWER($' + index.toString() + ')'
+		
+	// 	whereParams.push(value);
+	// 	index++;
+	// }
+	// else if(param.toString().indexOf('.') != -1){
+	// 	whereClause += '"' + param + '" = $' + index.toString();
+	// 	whereParams.push(value);
+	// 	index++;
+	// }
+	// else{
+	// 	whereClause += '"' + prefix + '"."' + param + '" = $' + index.toString();
+	// 	whereParams.push(value);
+	// 	index++;
+	// }
 	return {whereClause: whereClause, whereParams: whereParams, index: index};
 }
 Essence.whereParam = function(prefix, param, value, index) {
