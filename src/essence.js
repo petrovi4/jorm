@@ -42,10 +42,7 @@ var Essence = function(meta, params, joinParams, prefix) {
 	for(var joinIndex=0; joinIndex < (joinParams||[]).length; joinIndex++){
 		var join = this.getJoinParams( joinParams[joinIndex] );
 		try{
-			console.log(logPrefix, 'Joined essence\n', meta.name, '\n', params, '\n', joinParams, '\n', prefix, '\n', logPostfix);
-
-			// if(this[join.field] || join.essence.table != this.table){
-			if(params[join.prefix + '.id']){
+			if(params[join.prefix + '.id'] || params[join.essence.table + '.id']){
 				var joineEssence = new Essence(join.essence, params, null, join.prefix);
 				var fieldName =
 						join.fieldName
