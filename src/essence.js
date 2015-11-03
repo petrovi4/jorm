@@ -42,7 +42,8 @@ var Essence = function(meta, params, joinParams, prefix) {
 	for(var joinIndex=0; joinIndex < (joinParams||[]).length; joinIndex++){
 		var join = this.getJoinParams( joinParams[joinIndex] );
 		try{
-			if(params[join.prefix + '.id'] || params[join.essence.table + '.id']){
+			// if(params[join.prefix + '.id'] || params[join.essence.table + '.id']){
+			if(params[join.prefix + '.id']){
 				var joineEssence = new Essence(join.essence, params, null, join.prefix);
 				var fieldName =
 						join.fieldName
@@ -212,9 +213,7 @@ Essence.selectFields = function(params, prefix) {
 
 Essence.getJoinParams = function(join) {
 	var joinObj = (typeof join == 'string') ? {
-		essence: this.jorm[join],
-		// field: this.jorm[join].table + '_id',
-		// joinField: 'id'
+		essence: this.jorm[join]
 	} : join;
 
 	if(typeof joinObj.essence == 'string') joinObj.essence = this.jorm[joinObj.essence];
