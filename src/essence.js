@@ -544,8 +544,10 @@ Essence.prototype.getPublicInternal = function(fields, params) {
 	}
 
 	for(var property in this){
-		if( (this[property] instanceof Array && this[property].length > 0 && typeof(this[property][0].getPublic) == "function") ||
-				(this[property] instanceof Array && this[property].length == 0) ) {
+		if( !this.fields[property] &&
+				((this[property] instanceof Array && this[property].length > 0 && typeof(this[property][0].getPublic) == "function") ||
+				(this[property] instanceof Array && this[property].length == 0) )
+		) {
 
 			var joinedEssences = [];
 			for(var j=0; j< this[property].length; j++){
