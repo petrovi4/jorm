@@ -477,7 +477,8 @@ Essence.prototype.save = function(done) {
 			var insertParams = [];
 
 			for(var property in _this.fields){
-				if(property == 'id' || property == 'created') continue;
+				if(property == 'id' && (_this[property] == null || _this[property] == undefined)) continue;
+				if(property == 'created' && (_this[property] == null || _this[property] == undefined)) continue;
 
 				insertFields += (insertFields.length > 0 ? ', ' : '') + property;
 				insertValues += (insertValues.length > 0 ? ', ' : '') + '$' + i.toString();
