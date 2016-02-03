@@ -325,7 +325,7 @@ Essence.get = function(params, done) {
 	}
 	
 	this.jorm.dbLabmda(function(err, client, doneDB) {
-		if(err){ console.error(err); doneDB(); done(err); return; }
+		if(err){ console.error(err); doneDB && doneDB(); done(err); return; }
 
 		var cacheKey = _this.getQueryCacheKey(queryString, where.whereParams);
 
@@ -386,7 +386,7 @@ Essence.get = function(params, done) {
 			//Usual and simple way
 			fetchFromDb(queryString, where.whereParams, function (rows) {
 				var essences = buildEssences(rows);
-				console.log(logPrefix, 'Getted from db', _this.table, essences.length, logPostfix);
+				if(this.jorm.log) console.log(logPrefix, 'Getted from db', _this.table, essences.length, logPostfix);
 
 				done && done(err, essences);
 			});
@@ -411,7 +411,7 @@ Essence.get = function(params, done) {
 
 						var essences = buildEssences(rows);
 
-						console.info(logPrefix, 'Getted from db', _this.table, essences.length, logPostfix);	
+						if(this.jorm.log) console.info(logPrefix, 'Getted from db', _this.table, essences.length, logPostfix);	
 
 						done && done(err, essences);
 					});
