@@ -2,6 +2,7 @@ var pg = require('pg');
 var extend = require('extend');
 var uuid = require('node-uuid');
 var crypto = require('crypto');
+var _ = require('lodash');
 
 var logPrefix = "\n\n[------------------ JORM ------------------ \n";
 var logPostfix = "\n------------------ JORM ------------------]\n\n";
@@ -351,7 +352,9 @@ Essence.get = function(params, done) {
 
 							for(var joinedObjectIndex = 0; joinedObjectIndex < (newEssence[ joinedName ] || []).length; joinedObjectIndex++){ // Все сджойненные объекты из newEssence одного типа
 								var joinedEssence = newEssence[ joinedName ][joinedObjectIndex];
-								essences[j][joinedName].push( joinedEssence );
+
+								if(!_.find(essences[j][joinedName], {id: joinedEssence.id}))
+									essences[j][joinedName].push( joinedEssence );
 
 								if(_this.jorm.redis && !skipCache) joinedEssence.addDependence(cacheKey); // к сджойненному объекту добавляем зависимость от cacheKey оригинального запроса, чтобы сбросить результат оригинального запроса из кэша, в случае если изменится текущий сджойненный essence-объект
 							}
