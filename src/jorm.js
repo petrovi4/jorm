@@ -2,21 +2,10 @@ var pg = require('pg');
 var extend = require('extend');
 var async = require('async');
 var redis = require('redis');
+var _ = require('lodash');
 
-jormCacheShort = 5;
-jormCacheMedium = 30;
-jormCacheLong = 120;
-jormCacheForever = 999;
-
-jormCachePolicy = {
-	noCache: -1,
-	short: jormCacheShort,
-	medium: jormCacheMedium,
-	long: jormCacheLong,
-	forever: 999,
-
-	default: jormCacheMedium
-}
+var logger = require('./logger');
+var essence = require('./essence');
 
 Array.prototype.getPublic = function(fields, params) {
 	var publicArr = [];
@@ -32,74 +21,84 @@ Array.prototype.getPublic = function(fields, params) {
 }
 
 module.exports = function(jormParams, config) {
-	var essence = require('./essence');
+	var _this = this;
 
 	this.connectionString = (typeof jormParams == 'string' ? jormParams : jormParams.connectionString);
-	this.logSQL = jormParams.logSQL != null ? jormParams.logSQL : true;
-	this.log = jormParams.log != null ? jormParams.log : true;
-	
-	this.defaultBeforeDBCallback = function (err, client, callback) {
+	this.logger = jormParams.logger ? jormParams.logger : logger;
+
+	this.dbLabmda = function (beforeTrigger, action, afterTrigger, callback) {
+		logger.trace('dbLabmda');
+
+		var _client;
+		var _donePG;
+
+		async.waterfall([
+		
+			// Подключаемся
+			function(callback){
+				pg.connect(_this.connectionString, callback);
+			},
+		
+			// Триггер before
+			function(client, donePG, callback){
+				_client = client
+				_donePG = donePG;
+
+				beforeTrigger(client, callback);
+			},
+
+			// Выполняем основной функционал запроса
+			function(callback) {
+				action(_client, callback);
+			},
+
+			// Завершаем триггером after
+			function(dataFromDB, callback) {
+				afterTrigger(_client, dataFromDB, callback)
+			}
+
+		], function (err, dataFromDB) {
+			logger.trace('dbLabmda done', err, dataFromDB);
+
+			_donePG&&_donePG();
+
+			if(err) logger.error(err); 
+
+			callback(err, dataFromDB);			
+		});
+	}
+
+	this.defaultBeforeTrigger = function (client, callback) {
+
 		callback();
 	};
 	
-	this.defaultAfterDBCallback = function (err, client, callback, callbackErr, callbackData, doneDB) {
-		doneDB();
-		callback(callbackErr, callbackData);
+	this.defaultAfterTrigger = function (client, dataFromDB, callback) {
+
+		callback();
 	}
-        
-	this.useCache = (jormParams.cache != null && jormParams.cache.client == 'redis');
-	this.redis = jormParams.cache;
-	
-	// console.log('connectionString', this.connectionString);
-	// console.log('logSQL', this.logSQL);
 
-	var _this = this;
-	this.dbLabmda = function (executeInDBScope) {
-		pg.connect(_this.connectionString, function(err, client, donePG) {
-			if(err){ console.error(err); donePG(); executeInDBScope('DB_ERROR'); return; }
-			if(_this.log) console.log('Connected to PG');
-
-			executeInDBScope(err, client, donePG);
-		});
-	};
-	
-	this.dbLambdaForSave = function (context, callback) {
-		_this.dbLabmda(function(err, client, doneDB) {
-			context.beforeSave(err, client, function () {
-				callback(
-					err,
-					client,
-					context.afterSave,
-					doneDB
-				);
-			});
-		});
-	};
-	
-	this.dbLambdaForAdd = function (context, callback) {
-		_this.dbLabmda(function(err, client, doneDB) {
-			context.beforeAdd(err, client, function () {
-				callback(
-					err,
-					client,
-					context.afterAdd,
-					doneDB
-				);
-			});
-		});
-	};
+	_.forEach(config, function(essenceName, essenceConfig) {
+		_this[essenceName, essenceConfig] = {
+			create: function (params) {
+				return new essence(this, params || {});
+			},
+			_meta: {
+				jorm: this,
+				config: essenceConfig,
+				
+			}
+		}
+	});
 
 	for(var essenceMeta in config){
-		// console.log('essenceMeta', essenceMeta);
 
 		_this[ essenceMeta ] = extend( {}, essence, config[ essenceMeta ] );
 
 		_this[ essenceMeta ].name = essenceMeta;
 		_this[ essenceMeta ].jorm = _this;
 
-		_this[ essenceMeta ].create = function (params) {
-			return new essence(this, params || {});
-		};
+		_this[ essenceMeta ].create = ;
 
 		_this[ essenceMeta ].getPublicArr = function(arr, fields){
 			var result = [];
