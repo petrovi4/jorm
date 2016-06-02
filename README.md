@@ -5,10 +5,13 @@ Simple orm - just orm.
 
 ## Init
 
-Just init connectionString
+Just init jorm parameters
 
 ```javascript
-var connectionString = "postgres://user:password@server.com:5432/base";
+var jormParams = {
+	connectionString: "postgres://user:password@server.com:5432/base", // required
+	logger: custom_logger, // optionsl object with log, error, warn and info methods
+}
 ```
 
 db config
@@ -17,48 +20,55 @@ var config = {
 	User: {
 		table: 'user',
 		fields: {
-			id					: {},
-			created				: {},
-			name				: {},
-			hpassword			: {},
-			email				: {},
-			phone				: {}
-		}
+			id			: {pk: true}, // this is primary key to CRUD operations
+			created		: {default: function(params){ return new Date() }}, // field allows auto init default values
+			name		: {public: true}, // this field will be in public object by .getPublic() method
+			hpassword	: {},
+			email		: {public: 'light'}, // this field will be in public object by .getPublic() and .getPublic('light') method
+			phone		: {public: ['light', 'full']}, // this field will be in public object by .getPublic(), .getPublic('light') and .getPublic('full') method
+			is_alex		: {db: false, default: function(params){ return params.name == 'Alex' }}, // this field will be ignored in all db CRUD operations, but will be filled while user object created
+			comments_count: { db: 'demand', sql: 'COALESCE((SELECT count(*) FROM comment WHERE comment.user_id = "user".id),0)' }, // this field including in query by demand
+		},
+
+		// Optional possible DB triggers - all combinations of 'select', 'insert', 'update', 'delete' commands, and 'after', 'before', 'error' events
+		select_before	: function(client, callback) { callback(); },
+		insert_after	: function(client, dataFromDB, callback){ callback(null, dataFromDB); },
+		delete_error	: function(err, callback) { callback(); },
+
+		init 			: function() {this.hpassword = someFuncToHashPass(this.email, this.password)} // called after object created
 	}
 };
 ```
 
 and init jorm
 ```javascript
-var jormModule = require('jorm');
-jorm = new jormModule(connectionString, config);
+var jorm = require('jorm');
+var dto = new jorm(jormParams, config);
 ```
 
 # CRUD
 ## Create
 ```javascript
 var newUser = jorm.User.create({name: 'John', email: 'john@connor.com'})
-newUser.hpassword = someFuncToHashPass(login, password);
 ```
 
 ## Save
+
+If object's primary key field not defined, then make *insert*. Else make *update*
+
 ```javascript
 newUser.save(function(err, user){
-	if(err){ console.error(err); return; }
+	if(err) return console.error(err);
 	console.log(user.getPublic());
 });
 ```
 
 ## Update
 
-essence.id == null -> make insert
-
-essence.id != null -> make update
-
 ```javascript
 user.name = newName;
 user.save(function(err, user){
-	if(err){ console.error(err); return; }
+	if(err) return console.error(err);
 	console.log(user.getPublic());
 });
 ```
@@ -67,78 +77,101 @@ user.save(function(err, user){
 Just delete it
 ```javascript
 user.delete(function(err){
-	if(err){ console.error(err); return; }
+	if(err) return console.error(err);
 	console.log('deleted');
 })
 ```
 
 ## Get it from DB
-Simple get
-```javascript
-jorm.User.get({id: userId}, function(err, users) {
-	if(err){ console.error(err); res.send({errCode: 'INTERNAL_ERROR'}); return; }
-	if(users.length == 0){ res.send({errCode: 'UNKNOWN_USER_ID'}); return; }
 
-	res.send(users[0].getPublic());
+### Simple get by field
+```javascript
+jorm.User.get({
+	id: userId // simple 'where' by id
+}, function(err, users) {
+	if(err) return console.error(err);
+	if(users.length == 0)return console.log('UNKNOWN_USER_ID');
+	
+	console.log(users[0].getPublic());
 })
 ```
+
+
+### Custom get by fields
+
+```javascript
+jorm.User.get({
+	name 				:{comparsion: 'LIKE', value: '%a%'}, // 'where' by custom comparsion
+	surname				:{comparsion: 'LIKE', columns: ['name','description'], value: '%b%'} // LIKE over surname+columns with "OR" clause
+	age_xyz				:{columns: ['age'], comparsion: '>', value: 20},	// if 'age_xyz' column not exists and 'columns' specified ...
+	age_not_important	:{columns: ['age'], comparsion: '<', value: 50}, // ... non-existing property name will be ignored
+	post_count			: [1,2,3] // 'in' clause
+	gender				: ['m','f', null] // => gender in ('m','f') or gender is null
+}, {
+	fields: ['id', 'name'] // get from db only this fields
+	},function(err, users) {
+	if(err) return console.error(err);
+	console.log(users.getPublic()); // getPublic() work for arrays too
+})
+```
+
 
 ### Order, Limit and Offset 
 
 ```javascript
-var params = {
+jorm.User.get({
+	// empty fields params must be specified
+	}, {
+	demand: ['comments_count'],
 	limit: 10,
 	offset: 100,
-	'order by desc': 'created'
-};
-
-jorm.User.get(params, function(err, users) {
-	if(err){ console.error(err); res.send({errCode: 'INTERNAL_ERROR'}); return; }
-	if(users.length == 0){ res.send({errCode: 'UNKNOWN_USER_ID'}); return; }
-
-	res.send(jorm.User.getPublicArr(users));
+	order: {field: 'id', direction: 'asc'} // asc - default value for direction
+}, function(err, users) {
+	if(err) return console.error(err);
+	console.log(users.getPublic());
 })
 ```
 
-### Search with 'like', 'in' clause and custom comparsion
-
-```javascript
-var params = {
-	search: {columns: ['name', 'surname'], 
-	value: '%'+req.param('search').toLowerCase()+'%'},
-	field_for_in_clause: [1, 2, 3],
-	age: {comparsion: '>', value: 18}
-}
-jorm.User.get(params, function(err, users){
-	if(err){ console.log(err); res.send({errCode: 'INTERNAL_ERROR'}); return; }
-	res.send( jorm.User.getPublicArr(users) );
-});
-```
 
 ### Join essences
 
-Multiple join with "where" clause for joined table
-
+Simple join table with minimum options
 ```javascript
-var params = {
-	id: parseInt(req.param('id')),
+jorm.Post.get({
+	},{
 	join: [
-		{essence: 'Comment', field: 'id', joinField: 'post_id', where: {is_public: 1}},
-		'User'
-	]
-};
-
-jorm.Post.get(params, function(err, posts){
-	if(err){ console.log(err); res.send({errCode: 'INTERNAL_ERROR'}); return; }
-
-	if(posts.length == 0){ res.send({errCode: 'UNKNOWN_POST_ID'}); return; }
-
-	res.send( jorm.Post.getPublicArr(posts) );
+		{join: dto.User, field: 'id', parent_field: 'user_id'}
+	]}, function(err, posts){
+	if(err) return console.error(err);
+	console.log(posts.getPublic()); // each post contains user creator
 });
 ```
 
-In this example table "post" has field user_id, and table user joined by field id.
-Table "comment" joining with custom join configuration.
+Join same table twice (join to joined table)
+```javascript
+jorm.Post.get({
+
+	},{
+	join: [
+		{join: dto.User, to:dto.Post, field: 'id', right_field: 'user_id'},
+		{join: dto.Comment, left_field: 'id', right_field: 'user_id'}, // if 'to' omitted, main essence implied (Post in this example)
+		{join: dto.User, to:dto.Comment, field: 'id', right_field: 'user_id'}
+	]}, function(err, posts){
+	if(err) return console.error(err);
+	console.log(posts.getPublic()); // each post contains User and Comment fields, each Comment contains User itself
+});
+```
+
+
+
+
+v2
+=========================
+v1
+
+
+
+
 
 ## Defining and overriding methods in model
 

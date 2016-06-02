@@ -5,6 +5,9 @@
 	"author": {
 		"name": "Alexey Talkan"
 	},
+	"scripts": {
+		"test": "./node_modules/.bin/mocha --reporter spec"
+	},
 	"version": "2.0.0",
 	"repository": {
 		"type": "git",
@@ -14,21 +17,17 @@
 		"url": "https://github.com/petrovi4/jorm/issues"
 	},
 	"devDependencies": {
-		"pg": "*",
-		"extend": "*",
-		"async": "*",
-		"should": "*",
-		"mocha": "*",
-		"supertest": "*",
-		"node-uuid": "*"
+		"chai": "3.5.0",
+		"mocha": "2.5.3"
 	},
 	"readmeFilename": "README.md",
 	"homepage": "https://github.com/petrovi4/jorm",
 	"dependencies": {
-		"pg": "4.4.0",
-		"extend": "1.2.1",
 		"async": "1.2.1",
+		"extend": "1.2.1",
+		"lodash": "4.13.1",
 		"node-uuid": "1.4.3",
-		"lodash": "3.9.3"
+		"pg": "4.5.5",
+		"sql": "0.70.0"
 	}
 }

@@ -1,660 +1,316 @@
 var pg = require('pg');
-var extend = require('extend');
+var async = require('async');
+var _ = require('lodash');
 var uuid = require('node-uuid');
 var crypto = require('crypto');
 
-var logPrefix = "\n\n[------------------ JORM ------------------ \n";
-var logPostfix = "\n------------------ JORM ------------------]\n\n";
-
-var Essence = function(meta, params, joinParams, prefix) {	
-	extend(this, meta);
-	
-	var inited = false;
-	var props = [];
-		for (var property in meta.fields)
-			props.push(property);
-	
-		if (meta.extraFields != undefined)
-			for (var extraProperty in meta.extraFields)
-				props.push(extraProperty);
-		
-	for(var i = 0; i < props.length; i++){
-		var property = props[i];
-		if(prefix && params[prefix + '.' + property] != null && params[prefix + '.' + property] != undefined){
-			this[property] = params[prefix + '.' + property];
-			inited = true;
-		}
-		else if(!prefix && params[property] != null && params[property] != undefined){
-			this[property] = params[property];	
-			inited = true;
-		}
-		else if(!prefix){ // если нет prefix - значит инициализируем сджойненую таблицу, а значит оригинальную таблицу не просматриваем
-			this[property] = params[meta.table + '.' + property];
-			inited = true;
-		}
-	}
-	if(!inited){
-		var error = new Error('NOT_INITIALIZED');
-		console.error( logPrefix, 'Essence not created\n', meta.name, '\n', params, joinParams, prefix, '\n', error, logPostfix);
-		throw error;
-	}
-
-	for(var joinIndex=0; joinIndex < (joinParams||[]).length; joinIndex++){
-		var join = this.getJoinParams( joinParams[joinIndex] );
-		try{
-			// if(params[join.prefix + '.id'] || params[join.essence.table + '.id']){
-			if(params[join.prefix + '.id']){
-				var joineEssence = new Essence(join.essence, params, null, join.prefix);
-				var fieldName =
-						join.fieldName
-								? join.fieldName
-								: join.essence.name;
-
-				this[fieldName] = [joineEssence];
-			}
-		}
-		catch(err){ 
-			console.error("join.field, this[join.field]", join.field, this[join.field]);
-			console.error("join.essence.table this.table", join.essence.table, this.table);
-			if(this.jorm.log){ console.error(err); } 
-		}
-	}
-
-	if(this.init) this.init(params);
-}
-
-
-Essence.whereParamInternal = function(prefix, param, value, index) {
-
-	function getColumnClause(prefix, column){
-		var columnClause = "";
-
-		if(column.indexOf('+') != -1){
-			for(var subColumn of column.split('+')){
-				columnClause += (columnClause.length > 0 ? ', ' : '') + getColumnClause(prefix, subColumn);
-			}
-
-			columnClause = ' CONCAT(' + columnClause + ')'
-		}
-		else if(column.indexOf('.') != -1){
-			columnClause += '"' + column + '"';
-		}
-		else{
-			columnClause += '"' + prefix + '"."' + column + '"';
-		}
-
-		return columnClause;
-	}
-
-	var whereClause = '';
-	var whereParams = [];
-
-	if( value == undefined && value != null ) return;
-	if( param.toString().indexOf('order by') != -1 ) return;
-	if( param == 'join' ) return;
-	if( param =='limit' ) return;
-	if( param =='offset' ) return;
-	if( param =='cachePolicy' ) return;
-
-	if(value == null){
-		whereClause += '"' + prefix + '"."' + param + '" is null';
-	}
-	else if(value instanceof Array){
-		whereClause += getColumnClause(prefix, param) + ' in (';
-		for(var arrayIndex = 0; arrayIndex < value.length; arrayIndex++){
-			whereClause += (arrayIndex == 0 ? '' : ', ') + '$' + index.toString();
-			whereParams.push( value[arrayIndex].id ? value[arrayIndex].id : value[arrayIndex]);
-			index++;
-		}
-		whereClause += ')';
-	}
-	else if(value.comparsion){
-		whereClause += '"' + prefix + '"."' + (value.field || param) + '" ' + value.comparsion + ' $' + index.toString();
-		whereParams.push(value.value);
-		index++;
-	}
-	else if(value.between){
-		whereClause += '"' + prefix + '"."' + (value.field || param) + '" between $' + (index++).toString() + ' and $' + (index++).toString();
-		whereParams.push(value.between);
-		whereParams.push(value.and);
-	}
-
-	else if(param == 'search' && value.columns && value.value && value.value instanceof Array){
-		for(var j=0; j < value.value.length; j++){
-			for(var i=0; i < value.columns.length; i++){
-				whereClause += (whereClause.length == 0 ? '(' : ' OR ') + 'LOWER(' + getColumnClause(prefix, value.columns[i]) + ') LIKE LOWER($' + index.toString() + ')';
-			}
-			whereParams.push(value.value[j]);
-			index++;
-		}
-		whereClause += ')';
-	}
-	else if(param == 'search' && value.columns && value.value){
-		for(var i=0; i < value.columns.length; i++){
-			whereClause += (whereClause.length == 0 ? '(' : ' OR ') + 'LOWER(' + getColumnClause(prefix, value.columns[i]) + ') LIKE LOWER($' + index.toString() + ')';
-		}
-		whereClause += ')';
-		whereParams.push(value.value);
-		index++;
-	}
-	else{
-		whereClause += getColumnClause(prefix, param) + ' = $' + index.toString();
-		whereParams.push(value);
-		index++;
-	}
-
-	// else if(param.toString().indexOf('+') != -1){
-	// 	for(var subField of param.toString().split('+')){
-	// 		var fieldForClause = (subField.indexOf('.') != -1) ? 
-	// 															'"' + param + '"' :
-	// 															'"' + prefix + '"."' + subField + '"';
-
-	// 		whereClause += (whereClause.length > 0 ? ', ' : '') + fieldForClause;
-	// 	}
-
-	// 	whereClause = ' LOWER( CONCAT(' + whereClause + ')) LIKE LOWER($' + index.toString() + ')'
-		
-	// 	whereParams.push(value);
-	// 	index++;
-	// }
-	// else if(param.toString().indexOf('.') != -1){
-	// 	whereClause += '"' + param + '" = $' + index.toString();
-	// 	whereParams.push(value);
-	// 	index++;
-	// }
-	// else{
-	// 	whereClause += '"' + prefix + '"."' + param + '" = $' + index.toString();
-	// 	whereParams.push(value);
-	// 	index++;
-	// }
-	return {whereClause: whereClause, whereParams: whereParams, index: index};
-}
-Essence.whereParam = function(prefix, param, value, index) {
-	return this.whereParamInternal(prefix, param, value, index);
-}
-
-
-Essence.whereInternal = function(prevWhere, prefix, params) {
-	for(var whereParam in params){
-		var where = null;
-		if(this.whereParam){
-			where = this.whereParam(prefix, whereParam, params[whereParam], prevWhere.index);
-		}
-
-		if(!where){
-			where = this.whereParam( prefix, whereParam, params[whereParam], prevWhere.index);
-		}
-
-		if(where){
-			prevWhere.whereClause += (prevWhere.whereClause.length > 0 ? ' AND' : '') + ' (' + where.whereClause + ')';
-			prevWhere.whereParams = prevWhere.whereParams.concat(where.whereParams);
-			prevWhere.index = where.index || (prevWhere.index + 1);
-		}
-	}
-
-	return prevWhere;
-}
-Essence.where = function(prevWhere, prefix, params) {
-	return this.whereInternal(prevWhere, prefix, params);
-}
-
-
-Essence.selectFieldsInternal = function(params, prefix) {
-	prefix = prefix || this.table;
-	var selectFields = '';
-	for(var property in this.fields){
-		selectFields += (selectFields.length > 0 ? ', ' : '') + '"' + prefix + '"."' + property + '" as "' + prefix + '.' + property + '"';
-	}
-	return selectFields;
-}
-Essence.selectFields = function(params, prefix) {
-	return this.selectFieldsInternal(params, prefix);
-}
-
-Essence.getJoinParams = function(join) {
-	var joinObj = (typeof join == 'string') ? {
-		essence: this.jorm[join]
-	} : join;
-
-	if(typeof joinObj.essence == 'string') joinObj.essence = this.jorm[joinObj.essence];
-
-	if(!joinObj.table || typeof joinObj.table != 'string') joinObj.table = this.table;
-
-	if(!joinObj.field) joinObj.field = joinObj.essence.table + '_id';
-	if(typeof joinObj.field == 'string') joinObj.field = [joinObj.field];
-
-	if(!joinObj.joinField) joinObj.joinField = 'id';
-	if(typeof joinObj.joinField == 'string') joinObj.joinField = [joinObj.joinField];
-
-	if(!joinObj.joinClause) joinObj.joinClause = 'LEFT OUTER JOIN';
-	if(!joinObj.prefix) joinObj.prefix = 'j' + uuid.v4().split('-')[0];
-
-	return joinObj;
-}
-
-
-Essence.get = function(params, done) {
-	if(this.jorm.log) console.log(logPrefix, 'Jorm start get', this.table, params, logPostfix);	
+var Essence = function(essenseType, params, alias) {	
+	// console.log('\n\ninit', essenseType._meta.name, 'by', params, alias);
 	var _this = this;
 
-	var thisCachePolicy = params.cachePolicy || this.cachePolicy || jormCachePolicy.default;
-	
-	if (params.query == undefined) {
-		var selectFields = this.selectFields(params);
-		var tablesJoin = '';
+	_.assign(this, essenseType);
 
-		var where = {whereClause: '', whereParams: [], index: 1};
+	_.forEach(this._meta.config.fields, function(field, field_name) {
+		var param_with_alias = alias ? alias+'.'+field_name : field_name;
 
-		var orderClause = '';
-		var limitClause = '';
-		var offsetClause = '';
+		if(_.has(params, param_with_alias))
+			_this[field_name] = params[param_with_alias];
+		else {
+			if(typeof field.default == 'function') _this[field_name] = field.default();
+			else if(_.has(field, 'default')) _this[field_name] = field.default;
+		}		
+	});
 
-		var joinsCache = {};
+	if(this.init) this.init();
+	// console.log(this);
+}
 
-		for(var joinIndex=0; joinIndex < (params.join || []).length; joinIndex++){
-			var join = params.join[joinIndex] = this.getJoinParams(params.join[joinIndex]);
+function getSelectFields(essence) {	
+	var fields = _.pickBy(essence._meta.config.fields, function(field_value, field_key) {
+		return !_.has(field_value, 'db') || 
+			field_value['db'] == 'select' || 
+			(Array.isArray(field_value['db']) && field_value['db'].indexOf('select') != -1);
+	});
+	fields = _.keys(fields);
+	return fields;
+}
+function fieldsWithAlias (sql_obj, fields, alias) {
+	return _.map(fields, function(field) {
+		return sql_obj[field].as(alias+'.'+field);
+	});
+}
 
-			tablesJoin += ' ' + join.joinClause + ' "' + join.essence.table + '" as "' + join.prefix + '"';
-			tablesJoin += ' ON (';
-			for(var i=0; i<join.field.length; i++){
-				tablesJoin += (i==0?'':' AND ') + '"' + join.table + '"."' + join.field[i] + '" = "' + join.prefix + '"."' + join.joinField[i] + '"';
-			}
-			tablesJoin += ')';
 
-			selectFields += ', ' + join.essence.selectFields(params, join.prefix);
-
-			where = join.essence.where(where, join.prefix, join.where);
-
-			joinsCache[join.essence.name] = join;
-		}
-
-		where = this.where(where, this.table, params);
-
-		if(this.order){
-			orderClause = this.order(params);
-		}
-		if(!orderClause){
-			for(var orderParam in params){
-				if( params[orderParam] == undefined ) continue;
-
-				if(orderParam == 'order by asc'){
-					orderClause = ' order by "' + (params[orderParam].indexOf('.') == -1 ? (this.table + '"."') : '') + params[orderParam] + '" asc';
-				}
-				else if(orderParam == 'order by desc'){
-					orderClause = ' order by "' +  (params[orderParam].indexOf('.') == -1 ? (this.table + '"."') : '') + params[orderParam] + '" desc';
-				}
-				else if(orderParam == 'order by random'){
-					orderClause = ' order by random()';
-				}
-			}
-		}
-
-		if(this.limit){
-			limitClause = this.limit(params);
-		}
-		else{
-			for(var limitParam in params){
-				if( params[limitParam] == undefined ) continue;
-
-				if(limitParam == 'limit'){
-					limitClause = ' limit ' + parseInt(params[limitParam]);
-				}
-			}
-		}
-
-		if(this.offset){
-			offsetClause = this.offset(params);
-		}
-		else{
-			for(var offsetParam in params){
-				if( params[offsetParam] == undefined ) continue;
-
-				if(offsetParam == 'offset'){
-					offsetClause = ' offset ' + parseInt(params[offsetParam]);
-				}
-			}
-		}
-
-		
-		var whereClauseConcat = (where.whereClause.length > 0 ? ' WHERE ' : '') + where.whereClause;
-		var queryString = 'SELECT '+ selectFields +' FROM "' + _this.table + '"' + tablesJoin + whereClauseConcat + orderClause + limitClause + offsetClause;
-	} 
-	else {
-		queryString = params.query;
-		where = {whereParams: params.where};
+Essence.get = function(fields, params, callback) {
+	if(typeof params == 'function') {
+		callback = params;
+		params = {};
 	}
-	
-	this.jorm.dbLabmda(function(err, client, doneDB) {
-		if(err){ console.error(err); doneDB && doneDB(); done(err); return; }
 
-		var cacheKey = _this.getQueryCacheKey(queryString, where.whereParams);
+	var _this = this;
+	var _query;
 
-		if(_this.jorm.logSQL) console.log(logPrefix, 'Start GET by SQL query with cacheKey', cacheKey, '\n', queryString, where.whereParams, logPostfix);
+	jorm.dbLabmda(
+		this._meta['select_before'],
 
-		// <<< helpers stuff
-		function buildEssences(list, skipCache) {
-			var essences = [];
+		function(client, callback) {
+
+			async.waterfall([
+
+				// Подготавливаем запрашиваемые поля и алиасы для самой таблицы и джойнов
+				function(callback){
+					params.alias = params.alias || uuid.v4().replace(/-/g, '');
+					// params.sql_obj = _this._meta.sql.as(params.alias);
+
+					params.fields = params.fields || getSelectFields(_this);
+					params.fields = fieldsWithAlias(_this._meta.sql, params.fields, params.alias);
+
+					var fieldsToSelect = params.fields;
+
+					_.forEach(params.join, function(join) {
+
+						join.alias = join.alias || uuid.v4().replace(/-/g, '');
+						join.join = join.join._meta.sql.as(join.alias);
+
+						join.fields = join.fields || getSelectFields(join.join);
+						join.fields = fieldsWithAlias(join.join, join.fields, join.alias);
+
+						fieldsToSelect = _.concat(fieldsToSelect, join.fields);
+					});
+
+					_query = _this._meta.sql.select(fieldsToSelect);
+
+					callback();
+				},
 			
-			for(var i=0; i<(list || []).length; i++){
+				// Подготавливаем поля WHERE из запроса
+				function(callback){
 
-				var newEssence = new Essence(_this, list[i], params.join);
+					// Полная сигнатура определениий всех колонок WHERE (см. README)
+					// { sql_obj: sql, columns: ['a','b'], comparsion: '>=', value: 3 }
+					var fields_with_full_description = [];
 
-				// Ищем, может из-за джойна этот объект уже создавался
-				for(var j=0; j<essences.length; j++){
-					if(essences[j].id && newEssence.id && essences[j].id == newEssence.id){ // Такой объект уже есть
+					var where_clause = null;
 
-						for(var joinIndex = 0; joinIndex < (params.join || []).length; joinIndex++){ // Все сджойненые объекты newEssence добавляем в найденный essences[j]
-							var joinedName =
-									params.join[joinIndex].fieldName
-										? params.join[joinIndex].fieldName
-										: params.join[joinIndex].essence.name;
+					_.forEach(fields, function(field_value, field_key) {
+						
+						var full_field = {};
 
-							for(var joinedObjectIndex = 0; joinedObjectIndex < (newEssence[ joinedName ] || []).length; joinedObjectIndex++){ // Все сджойненные объекты из newEssence одного типа
-								var joinedEssence = newEssence[ joinedName ][joinedObjectIndex];
-								essences[j][joinedName].push( joinedEssence );
+						// -------- базовые сценарии определения поля --------
 
-								if(_this.jorm.redis && !skipCache) joinedEssence.addDependence(cacheKey); // к сджойненному объекту добавляем зависимость от cacheKey оригинального запроса, чтобы сбросить результат оригинального запроса из кэша, в случае если изменится текущий сджойненный essence-объект
+						// простейшее определение {id: 3} => where id = 3
+						if(typeof field_value == 'number' || typeof field_value == 'string') 
+							full_field = { 
+								alias: params.alias,
+								value: field_value, 
+								columns: [field_key],
+								comparsion: '='
 							}
+						// массив {id: [1,2,3]} => where id in (1,2,3)
+						else if(Array.isArray(field_value)) 
+							full_field = { 
+								alias: params.alias,
+								value: field_value, 
+								columns: [field_key],
+								comparsion: 'in'
+							}
+						else _.assign(full_field, field_value);
+
+						// ----------- дополняем поля по-умолчанию ----------
+
+						// ошибка - передана херня в качестве описания поля
+						if(typeof full_field != 'object')
+							return callback('WRONG_WHERE_FIELD_DEFINITION');
+
+						// ошибка - нет value
+						if(!_.has(full_field, 'value'))
+							return callback('WRONG_WHERE_FIELD_VALUE');
+
+						// добиваем алиасом
+						if(_.has(full_field, 'alias'))
+							full_field.alias = params.alias;
+
+						// добиваем оператором сравнения
+						if(_.has(full_field, 'comparsion'))
+							full_field.comparsion = '=';
+
+						// добиваем колонками, по которым будем сравнивать
+						if(!_.has(full_field, 'columns'))
+							full_field.columns = [field_key];
+						else if(typeof full_field.columns == 'string')
+							full_field.columns = [full_field.columns];
+
+
+						// корректируем оператор сравнения
+						if(full_field.columns.length > 1) full_field.comparsion = 'in';
+						var sql_comparsion = {
+							'in': 'in',
+							'like': 'like',
+							'=': 'equals',
+							'<': 'lt', 
+							'>': 'gt',
+							'<=': 'lte',
+							'=<': 'lte',
+							'>=': 'gte',
+							'=>': 'gte',
+						}
+						if(!_.has(sql_comparsion, full_field.comparsion)) return callback('WRONG_WHERE_FIELD_COMPARSION');
+
+
+						// ------- записываем типизированные объекты по алиасам таблиц и полей ---------
+
+						// sql объект, по которому делается where
+						if(full_field.alias == params.alias) full_field.sql_obj = _this._meta.sql;
+						else {
+							var join = _.find(params.join, {alias: full_field.alias});
+							if(!join) return callback('BAD_ALIAS_IN_WHERE_FIELD_DEFINITION');
+							full_field.sql_obj = join.join;
 						}
 
-						newEssence = null; // Чтобы не добавлять в результирующую коллекцию
-						break;
-					}
-				}
+						// columns
+						var typed_columns = []
+						_.forEach(full_field.columns, function(column) {
+							typed_columns.push( full_field.sql_obj[column] );
+						});
+						full_field.columns = typed_columns;
 
-				if(newEssence){
-					if(_this.jorm.redis && !skipCache) newEssence.addDependence(cacheKey);
+						if(full_field.columns.length > 1) new Error('NOT_IMPLEMENTED');
 
-					essences.push( newEssence );	
-				}
-			}
-			
-			return essences;
-		}
-		
-		function fetchFromDb(queryString, params, returning) {
-			client.query(queryString, params, function(err, result) {
-				doneDB();
-				if(err){ console.error('Cant select\n', queryString, '\n' + err); done(err); return; }
-				
-				returning(result.rows);
-			});
-		}
-		// >>> helpers stuff
-		
-		if (!_this.jorm.redis) {
-			//Usual and simple way
-			fetchFromDb(queryString, where.whereParams, function (rows) {
-				var essences = buildEssences(rows);
-				if(_this.jorm.log) console.log(logPrefix, 'Getted from db', _this.table, essences.length, logPostfix);
-
-				done && done(err, essences);
-			});
-		} 
-		else {
-			_this.jorm.redis.get(cacheKey, function (err, data) {
-				if(err) console.error('Error get from cache', err);
-
-				if(data){
-					doneDB();
-					var essences = buildEssences(JSON.parse(data), true);
-
-					console.info(logPrefix, 'Getted from cache', cacheKey, '\n', data, essences.length, logPostfix);
-					done(null, essences);
-				}
-				else{
-					console.info(logPrefix, 'Cache is empty, fetching from db', cacheKey, logPostfix);
-
-					fetchFromDb(queryString, where.whereParams, function (rows) {
-
-						_this.putToCache(cacheKey, rows, thisCachePolicy);
-
-						var essences = buildEssences(rows);
-
-						if(_this.jorm.log) console.info(logPrefix, 'Getted from db', _this.table, essences.length, logPostfix);	
-
-						done && done(err, essences);
-					});
-				}
-			});
-		}
-	});
-}
-
-Essence.prototype.save = function(done) {
-	var _this = this;
-	
-	if(this.jorm.redis) {
-		this.cacheInvalidate();
-	}
-	
-	var dbFunctionName = 
-		_this.id 
-			? _this.jorm.dbLambdaForSave 
-			: _this.jorm.dbLambdaForAdd;
-		
-	dbFunctionName(_this, function(err, client, aftersave, doneDB) {
-		if(err){ console.error(err); doneDB(); done(err); return; }
-
-		if(_this.id){ // update
-			if(_this.jorm.log) console.info(logPrefix, 'Start update ', _this.table, logPostfix);
-		
-			var updateFields = '';
-			var i = 2;
-			var updateParams = [ _this.id ];
-
-			for(var property in _this.fields){
-				if(property == 'id' || property == 'created') continue;
-
-				updateFields += (updateFields.length > 0 ? ', ' : '') + property + '=$' + i.toString();
-
-				var paramFromField = (typeof(_this[property]) == 'object' && _this[property] != null) ? JSON.stringify( _this[property]) : _this[property];
-				updateParams.push( paramFromField );
-
-				i++;
-			}
-
-			var updateString = 'UPDATE "'+ _this.table +'" SET '+ updateFields +' WHERE id=$1';
-
-			if(_this.jorm.logSQL) console.log(logPrefix, 'Executing SQL UPDATE query\n', updateString, updateParams, logPostfix);
-			
-			client.query(updateString, updateParams, function(err, result) {
-				if(err){
-					console.error(logPrefix, 'Cant update\n', updateString, '\n' + err, logPostfix); 
-					aftersave(err, client, done, err, result, doneDB);
-					return; 
-				}
-
-				aftersave(null, client, done, null, _this, doneDB);		
-			});
-		}
-		else{ // insert
-			if(_this.jorm.log) console.info(logPrefix, 'Start insert ', _this.table, logPostfix);
-
-			var insertFields = '';
-			var insertValues = '';
-			var i = 1;
-			var insertParams = [];
-
-			for(var property in _this.fields){
-				if(property == 'id' && (_this[property] == null || _this[property] == undefined)) continue;
-				if(property == 'created' && (_this[property] == null || _this[property] == undefined)) continue;
-
-				insertFields += (insertFields.length > 0 ? ', ' : '') + property;
-				insertValues += (insertValues.length > 0 ? ', ' : '') + '$' + i.toString();
-
-				var paramFromField = (typeof(_this[property]) == 'object' && _this[property] != null) ? JSON.stringify( _this[property]) : _this[property];
-				insertParams.push( paramFromField );
-
-				i++;
-			}
-
-			var insertString = 'INSERT INTO "' + _this.table + '" (' + insertFields + ') VALUES (' + insertValues +') RETURNING *';
-
-			if(_this.jorm.logSQL) console.log(logPrefix, 'Executing SQL INSERT query\n', insertString, insertParams, logPostfix);
+						var where_clause_on_this_step = full_field.columns[0][ sql_comparsion[full_field.comparsion] ]( full_field.value );
 						
-			client.query(insertString, insertParams, function(err, result) {
+						if(where_clause == null) where_clause = where_clause_on_this_step;
+						else where_clause.and(where_clause_on_this_step);
+					});
+					
+					_query = _query.where(where_clause);
 				
-				if(err){
-					console.error('Cant insert\n', insertString, '\n'+err); 
-					aftersave(err, client, done, err, result, doneDB);
-					return;
+					callback(null);
+				},
+
+				// Делаем запрос в базу
+				function(callback) {
+					_query = _query.toQuery();
+
+					console.log(_query);
+
+					client.query(_query.text, _query.values, callback);
+				},
+
+				// Парсим результаты
+				function(dataFromDB, callback) {
+					var result = [];
+					var joined_essences = {}
+
+					_.forEach(dataFromDB.rows, function(row) {
+						var essence = new Essence(jorm[_this._meta.name], row, params.alias);
+						if(!_.find(result, {id: essence.id})) 
+							result.push(essence);
+
+						_.forEach(params.join, function(join) {
+							essence = new Essence(jorm[join.join._meta.name], row, join.alias);
+							if(!_.find(joined_essences[join.join._meta.name], {id: essence.id})) 
+								joined_essences[join.join._meta.name].push(essence);
+						})
+					});
+
+					callback(null, result, joined_essences);
+				},
+
+				// Собираем коллекцию объектов нужного типа и сджойненные объекты в одну коллекцию
+				function(result, joined_essences, callback) {
+					// тут код для сборки
+	
+					console.log(result.getPublic());
+					_.forEach(joined_essences, function(value, key) {
+						console.log(key, value.getPublic());
+					});
+
+					callback(null, result);
 				}
 
-				for (var key in result.rows[0]) {
-					_this[key] = result.rows[0][key];
+			], function (err, result) {
+				if(err) {
+					console.error(err);
+					return callback(err);
 				}
-				
-				aftersave(null, client, done, null, _this, doneDB);
+
+				callback(null, result);
 			});
+		},
+
+		this._meta['select_after'],
+		this._meta['select_error'],
+
+		function(err, dataFromDB) {
+			callback(err, dataFromDB, _query);
 		}
-		
-	});
-};
+	);
+}
 
-Essence.prototype.delete = function(done, cacheWasChecked, initialContext) {
+Essence.prototype.save = function(callback) {
 	var _this = this;
-	
-	if(this.jorm.redis) {
-		this.cacheInvalidate();
-	}
+	var _query;
 
-	_this.jorm.dbLabmda(function(err, client, doneDB) {
-		if(err){ console.error(err); doneDB(); done(err); return; }
+	var command = this[this._meta.pk] ? 'update' : 'insert';
 
-		if(_this.jorm.log) console.info(logPrefix, 'Start delete ', _this.table, logPostfix);
-				
-		client.query('DELETE FROM "' + _this.table + '" WHERE id = $1', [_this.id], function(err, result) {
-			doneDB();
-			if(err){ console.error('Cant delete ' + _this.table, err); done(err); return; }
+	jorm.dbLabmda(
+		this._meta[command+'_before'],
 
-			done && done(err, _this);
-		});
-		
-	});
-};
-
-
-Essence.prototype.getPublicInternal = function(fields, params) {
-	var publicThis = {};
-	for(var property in this.fields){
-		if(this.fields[property].public) publicThis[property] = this[property];
-	}
-	for(var property in this.extraFields){
-		if(this.extraFields[property].public) publicThis[property] = this[property];
-	}
-
-	for(var property in this){
-		if( !this.fields[property] &&
-				((this[property] instanceof Array && this[property].length > 0 && typeof(this[property][0].getPublic) == "function") ||
-				(this[property] instanceof Array && this[property].length == 0) )
-		) {
-
-			var joinedEssences = this[property].getPublic(fields, params);
-			publicThis[property] = joinedEssences;
-		}
-	}
-
-	fields = fields || [];
-	if(typeof fields == 'string') fields = [fields];
-	for(var i=0; i<fields.length; i++){
-		publicThis[fields[i]] = this[fields[i]];
-	}
-
-	return publicThis;
-};
-Essence.prototype.getPublic = function (fields, params) {
-	return this.getPublicInternal(fields, params);
-}
-
-// -------------------- CACHE --------------------
-Essence.getQueryCacheKey = function (query, queryParams) {
-	var shasum = crypto.createHash('sha1');
-	return shasum.update(query.toString() + queryParams.toString()).digest('hex');
-}
-
-Essence.prototype.getCacheKey = function () {
-	return this.table + '_' + this.id;
-}
-
-Essence.getTypeDependencesCacheKey = function () {
-	return this.table + '_type_deps';
-}
-
-Essence.prototype.getDependencesCacheKey = function () {
-	return this.getCacheKey() + '_deps';
-}
-
-Essence.addTypeDependence = function (releativeObjectCacheKey, callback) {
-	var _this = this;
-	var depsCacheKey = this.getTypeDependencesCacheKey();
-
-	this.jorm.redis.append(depsCacheKey, "|"+releativeObjectCacheKey, function(err, data) {
-		if(err) console.error(err);
-		callback && callback();
-	});
-}
-
-Essence.putToCache = function (cacheKey, object, cachePolicy, callback) {	
-	if(cachePolicy != jormCachePolicy.noCache){
-		this.jorm.redis.set(cacheKey, JSON.stringify(object));
-		this.jorm.redis.expire(cacheKey, 60*cachePolicy);
-
-		console.log(logPrefix, 'Put for', object, 'for cacheKey', cacheKey, 'and policy', cachePolicy, logPostfix);
-	}
-	else{
-		console.log(logPrefix, 'Ignore cache for', object, 'by cache policy', logPostfix);	
-	}
-
-	callback && callback();
-}
-
-
-Essence.prototype.addDependence = function (releativeObjectCacheKey, callback) {	
-	if(this.cachePolicy == jormCachePolicy.noCache){
-		console.log(logPrefix, 'Skip dependence for', this.table, '-', this.id, 'by cache policy', logPostfix);
-		callback && callback();
-		return;
-	}
-
-	console.log(logPrefix, 'Set dependence for', this.table, '-', this.id, 'from', releativeObjectCacheKey, logPostfix);
-
-	var _this = this;
-	var depsCacheKey = this.getDependencesCacheKey();
-
-	this.jorm.redis.append(depsCacheKey, "|"+releativeObjectCacheKey, function(err, data) {
-		if(err) console.error(err);
-		callback && callback();
-	});
-}
-
-Essence.prototype.cacheInvalidate = function(callback) {
-
-	var _this = this;
-	var depsKeys = [];
-
-	this.jorm.redis.get(this.getTypeDependencesCacheKey(), function(err, data) {
-		if(err) console.error(err);
-	
-		depsKeys.push( data && data.split('|') );
-		depsKeys.push( _this.getTypeDependencesCacheKey() );
-
-		_this.jorm.redis.get(_this.getDependencesCacheKey(), function(err, data) {
-			if(err) console.error(err);
-
-			depsKeys.push( data && data.split('|') );
-			depsKeys.push(_this.getCacheKey());
-			depsKeys.push(_this.getDependencesCacheKey());
-
-			depsKeys = _.compact( _.flattenDeep( depsKeys ) );
-
-			_this.jorm.redis.del(depsKeys, function(err) {
-				console.log(logPrefix, 'Invalidated', _this.table, _this.id, 'by dependences', depsKeys);
+		function(client, callback) {
+			
+			var fields = _.pickBy(_this._meta.config.fields, function(field_value, field_key) {
+				return !_.has(field_value, 'db') || 
+					field_value['db'] == command || 
+					(Array.isArray(field_value['db']) && field_value['db'].indexOf(command) != -1);
 			});
-			callback && callback();
-		});
-	});
-}
+			if(command == 'update') delete fields[_this._meta.pk];
+			var object_to_save = _.pick(_this, _.keys(fields));
 
+			_query = _this._meta.sql[command](object_to_save);
+			_query = command == 'insert' ? 
+				_query.returning().toQuery() : 
+				_query.where( _this._meta.sql[_this._meta.pk].equals(_this[_this._meta.pk]) ).toQuery();
+			// console.log(_query.text, _query.values);
+			client.query(_query.text, _query.values, callback);
+		},
+
+		this._meta[command+'_after'],
+		this._meta[command+'_error'],
+
+		function(err, dataFromDB) {
+			if(!err && command == 'insert')	_this[_this._meta.pk] = dataFromDB.rows[0][_this._meta.pk];
+			callback(err, _this, _query);
+		}
+	);
+};
+
+Essence.prototype.delete = function(callback) {
+	var _this = this;
+	var _query;
+
+	jorm.dbLabmda(
+		this._meta['delete_before'],
+
+		function(client, callback) {
+			var sql = _this._meta.sql;
+			var pk = _this._meta.pk;
+
+			_query = _this._meta.sql.delete().where( _this._meta.sql[_this._meta.pk].equals( _this[_this._meta.pk] ) ).toQuery();
+			// console.log(_query.text, _query.values);
+			client.query(_query.text, _query.values, callback);
+		},
+
+		this._meta['delete_after'],
+		this._meta['delete_error'],
+
+		function(err) {
+			callback(err, _query);
+		}
+	);
+};
+
+Essence.prototype.getPublic = function(publicSchema) {
+	return _.pick(this, _.keys(this._meta.config.fields));
+}
 
 module.exports = Essence;

@@ -1,42 +1,41 @@
 var pg = require('pg');
-var extend = require('extend');
 var async = require('async');
-var redis = require('redis');
 var _ = require('lodash');
 
-var logger = require('./logger');
+var sql = require('sql');
+sql.setDialect('postgres');
+
 var essence = require('./essence');
+
+jorm = null;
 
 Array.prototype.getPublic = function(fields, params) {
 	var publicArr = [];
-	for(var i=0; i<this.length; i++){
+	_.forEach(this, function(item) {
 		var publicItem = 
-			(typeof(this[i].getPublic) == "function") ? 
-				this[i].getPublic(fields, params) : 
-				this[i]
-
+			(typeof(item.getPublic) == "function") ? 
+				item.getPublic(fields, params) : 
+				item;
 		publicArr.push(publicItem);
-	}
+	});
+
 	return publicArr;
 }
 
 module.exports = function(jormParams, config) {
-	var _this = this;
+	jorm = this;
 
-	this.connectionString = (typeof jormParams == 'string' ? jormParams : jormParams.connectionString);
-	this.logger = jormParams.logger ? jormParams.logger : logger;
+	_.assign(this, {logger: console}, jormParams);
 
-	this.dbLabmda = function (beforeTrigger, action, afterTrigger, callback) {
-		logger.trace('dbLabmda');
-
+	this.dbLabmda = function (beforeTrigger, action, afterTrigger, errorTrigger, callback) {
 		var _client;
 		var _donePG;
 
 		async.waterfall([
-		
+
 			// Подключаемся
 			function(callback){
-				pg.connect(_this.connectionString, callback);
+				pg.connect(jorm.connectionString, callback);
 			},
 		
 			// Триггер before
@@ -44,7 +43,7 @@ module.exports = function(jormParams, config) {
 				_client = client
 				_donePG = donePG;
 
-				beforeTrigger(client, callback);
+				beforeTrigger ? beforeTrigger(client, callback) : callback();
 			},
 
 			// Выполняем основной функционал запроса
@@ -54,73 +53,60 @@ module.exports = function(jormParams, config) {
 
 			// Завершаем триггером after
 			function(dataFromDB, callback) {
-				afterTrigger(_client, dataFromDB, callback)
+				afterTrigger ? afterTrigger(_client, dataFromDB, callback) : callback(null, dataFromDB);
 			}
 
 		], function (err, dataFromDB) {
-			logger.trace('dbLabmda done', err, dataFromDB);
+			function complete () {
+				_donePG&&_donePG();
 
-			_donePG&&_donePG();
+				callback(err, dataFromDB);			
+			}
 
-			if(err) logger.error(err); 
-
-			callback(err, dataFromDB);			
+			(err && errorTrigger) ? errorTrigger(err, complete) : complete();
 		});
 	}
 
-	this.defaultBeforeTrigger = function (client, callback) {
-
+	this.default_before = function (client, callback) {
 		callback();
 	};
-	
-	this.defaultAfterTrigger = function (client, dataFromDB, callback) {
 
+	this.default_after = function (client, dataFromDB, callback) {
+		callback(null, dataFromDB);
+	}
+
+	this.default_error = function (err, callback) {
 		callback();
 	}
 
-	_.forEach(config, function(essenceName, essenceConfig) {
-		_this[essenceName, essenceConfig] = {
+	_.forEach(config, function(essenceConfig, essenceName) {
+		var pk = _.findKey(essenceConfig.fields, {pk: true}) || 'id';
+		if(!essenceConfig.fields[pk]) throw new Error('No primary key defined in essence ' + essenceName);
+
+		jorm[essenceName] = _.assign( {}, essence, {
+			init: essenceConfig.init,
 			create: function (params) {
 				return new essence(this, params || {});
 			},
 			_meta: {
-				jorm: this,
+				name: essenceName,
+				pk: pk,
+				jorm: jorm,
 				config: essenceConfig,
-				
+				sql: sql.define({
+					name: essenceConfig.table,
+					columns: _.pickBy(essenceConfig.fields, function(field_value) {
+						return _.has(field_value, 'db') || !field_value['db']
+					})
+				})
 			}
-		}
-	});
-
-	for(var essenceMeta in config){
-
-		_this[ essenceMeta ] = extend( {}, essence, config[ essenceMeta ] );
-
-		_this[ essenceMeta ].name = essenceMeta;
-		_this[ essenceMeta ].jorm = _this;
-
-		_this[ essenceMeta ].create = ;
-
-		_this[ essenceMeta ].getPublicArr = function(arr, fields){
-			var result = [];
-			for(var i=0; i<arr.length; i++){
-				var publicEssence = arr[i].getPublic(fields);
-				result.push(publicEssence);
-			}
-			return result;
-		};
-		
-		['Add', 'Save'].forEach(function (operation) {
-			_this[essenceMeta]['before' + operation] =
-			(config[essenceMeta]['before' + operation] != undefined) 
-				? config[essenceMeta]['before' + operation]
-				: _this.defaultBeforeDBCallback;
-				
-			_this[essenceMeta]['after' + operation] =
-			(config[essenceMeta]['after' + operation] != undefined) 
-				? config[essenceMeta]['after' + operation] 
-				: _this.defaultAfterDBCallback;
 		});
-	}
 
-	return this;
+		_.forEach(['select', 'insert', 'update', 'delete'], function(command) {
+			_.forEach(['after', 'before', 'error'], function(trigger) {
+				var signature = command+'_'+trigger;
+				jorm[essenceName][signature] = essenceConfig[signature] || jorm['default_'+trigger];
+			});
+		});
+	});
 }
