@@ -120,25 +120,6 @@ describe("Run [SELECT] tests", function() {
 		});
 	});
 
-	it('Check select IN clause', function(done) {
-		dto.User.get({ 
-			id: [1,2,3],
-		}, function(err, users) {
-			expect(err).to.not.exist;
-			expect(users).to.exist;
-			expect(users).to.have.length(3);
-
-			var user = users[0];
-			expect(user).to.have.property('id', 1);
-			expect(user).to.have.property('name', 'Alex');
-			expect(user).to.have.property('email', 'alex@server.com');
-			expect(user).to.have.property('hpassword', 'qweqwe');
-			expect(user).to.have.property('post_count_cache', 2);
-
-			done();
-		});
-	});
-
 	it('Check select IN clause with OR IS NULL clause', function(done) {
 		dto.User.get({ 
 			name: 'Alex',
@@ -154,6 +135,51 @@ describe("Run [SELECT] tests", function() {
 			expect(user).to.have.property('email', 'alex@server.com');
 			expect(user).to.have.property('hpassword', 'qweqwe');
 			expect(user).to.have.property('post_count_cache', 2);
+
+			done();
+		});
+	});
+
+	it('Check select custom fields', function(done) {
+		dto.User.get({ 
+			name: 'Alex',
+			id: [1,2,3, null],
+		}, {
+			fields: ['id', 'name']
+		}, function(err, users) {
+			expect(err).to.not.exist;
+			expect(users).to.exist;
+			expect(users).to.have.length(1);
+
+			var user = users[0];
+			expect(user).to.have.property('id', 1);
+			expect(user).to.have.property('name', 'Alex');
+			expect(user.email).to.be.NaN;
+			expect(user.hpassword).to.be.NaN;
+			expect(user).to.have.property('post_count_cache', 0);
+
+			done();
+		});
+	});
+
+	it('Check select demand fields', function(done) {
+		dto.User.get({ 
+			name: 'Alex',
+			id: [1,2,3, null],
+		}, {
+			fields: ['id', 'name'],
+			demand: ['comments_count']
+		}, function(err, users) {
+			expect(err).to.not.exist;
+			expect(users).to.exist;
+			expect(users).to.have.length(1);
+
+			var user = users[0];
+			expect(user).to.have.property('id', 1);
+			expect(user).to.have.property('name', 'Alex');
+			expect(user.email).to.be.NaN;
+			expect(user.hpassword).to.be.NaN;
+			expect(user).to.have.property('post_count_cache', 0);
 
 			done();
 		});

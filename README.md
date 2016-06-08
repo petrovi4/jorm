@@ -28,6 +28,7 @@ var config = {
 			phone		: {public: ['light', 'full']}, // this field will be in public object by .getPublic(), .getPublic('light') and .getPublic('full') method
 			is_alex		: {db: false, default: function(params){ return params.name == 'Alex' }}, // this field will be ignored in all db CRUD operations, but will be filled while user object created
 			comments_count: { db: 'demand', sql: 'COALESCE((SELECT count(*) FROM comment WHERE comment.user_id = "user".id),0)' }, // this field including in query by demand
+			post_count_cache: {sql: 'COALESCE(post_count_cache, 0)'}
 		},
 
 		// Optional possible DB triggers - all combinations of 'select', 'insert', 'update', 'delete' commands, and 'after', 'before', 'error' events
@@ -121,7 +122,7 @@ jorm.User.get({
 jorm.User.get({
 	// empty fields params must be specified
 	}, {
-	demand: ['comments_count'],
+	demand: ['comments_count'], // get all fields from User, and 'demand' fields
 	limit: 10,
 	offset: 100,
 	order: {field: 'id', direction: 'asc'} // asc - default value for direction

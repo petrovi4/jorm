@@ -12,7 +12,7 @@ var post = sql.define({
 	columns: ['id', 'user_id', 'created', 'text']
 });
 
-var query = user.select('id').where(user.id.equals(3))
+var query = user.select('id', 'COALESCE((SELECT count(*) FROM "post" WHERE "post".user_id = "user".id),0) as asd').where(user.id.equals(3))
 
 // var user_post = user.as('user_post');
 // var post_alias = post.as('xxx');

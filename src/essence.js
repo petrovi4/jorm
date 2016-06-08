@@ -34,9 +34,12 @@ function getSelectFields(essence) {
 	fields = _.keys(fields);
 	return fields;
 }
-function fieldsWithAlias (sql_obj, fields, alias) {
+function fieldsWithAlias (meta, fields, alias) {
 	return _.map(fields, function(field) {
-		return sql_obj[field].as(alias+'.'+field);
+		if(_.has(meta.config.fields[field], 'sql'))
+			return meta.config.fields[field].sql + ' as "' + alias + '.' + field + '"';
+		else 
+			return meta.sql[field].as(alias+'.'+field);
 	});
 }
 
@@ -60,20 +63,21 @@ Essence.get = function(fields, params, callback) {
 				// Подготавливаем запрашиваемые поля и алиасы для самой таблицы и джойнов
 				function(callback){
 					params.alias = params.alias || uuid.v4().replace(/-/g, '');
-					// params.sql_obj = _this._meta.sql.as(params.alias);
 
 					params.fields = params.fields || getSelectFields(_this);
-					params.fields = fieldsWithAlias(_this._meta.sql, params.fields, params.alias);
+					params.fields = _.concat(params.fields, [params.demand]);
+					params.fields = _.compact(_.flatten(params.fields));
+					params.fields = fieldsWithAlias(_this._meta, params.fields, params.alias);
 
 					var fieldsToSelect = params.fields;
 
 					_.forEach(params.join, function(join) {
 
 						join.alias = join.alias || uuid.v4().replace(/-/g, '');
-						join.join = join.join._meta.sql.as(join.alias);
+						join.sql_obj = join.join._meta.sql.as(join.alias);
 
 						join.fields = join.fields || getSelectFields(join.join);
-						join.fields = fieldsWithAlias(join.join, join.fields, join.alias);
+						join.fields = fieldsWithAlias(join.join._meta, join.fields, join.alias);
 
 						fieldsToSelect = _.concat(fieldsToSelect, join.fields);
 					});
@@ -167,7 +171,7 @@ Essence.get = function(fields, params, callback) {
 						else {
 							var join = _.find(params.join, {alias: full_field.alias});
 							if(!join) return callback('BAD_ALIAS_IN_WHERE_FIELD_DEFINITION');
-							full_field.sql_obj = join.join;
+							full_field.sql_obj = join.sql_obj;
 						}
 
 						console.log('full_field', _.omit(full_field, 'sql_obj'));
