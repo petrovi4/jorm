@@ -102,9 +102,8 @@ jorm.User.get({
 ```javascript
 jorm.User.get({
 	name 				:{comparsion: 'LIKE', value: '%a%'}, // 'where' by custom comparsion
-	surname				:{comparsion: 'LIKE', columns: ['name','description'], value: '%b%'} // LIKE over surname+columns with "OR" clause
-	age_xyz				:{columns: ['age'], comparsion: '>', value: 20},	// if 'age_xyz' column not exists and 'columns' specified ...
-	age_not_important	:{columns: ['age'], comparsion: '<', value: 50}, // ... non-existing property name will be ignored
+	any_field			:{comparsion: 'LIKE', columns: ['name','description'], value: '%b%'} // LIKE over name+description with "OR" clause
+	age_xyz				:{columns: ['age'], comparsion: '>', value: 20},	// 'columns' fields override key,  ...
 	post_count			: [1,2,3] // 'in' clause
 	gender				: ['m','f', null] // => gender in ('m','f') or gender is null
 }, {

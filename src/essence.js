@@ -93,6 +93,7 @@ Essence.get = function(fields, params, callback) {
 					var where_clause = null;
 
 					_.forEach(fields, function(field_value, field_key) {
+						console.log('\n\nProcess', field_value, field_key);
 						
 						var full_field = {};
 
@@ -127,12 +128,14 @@ Essence.get = function(fields, params, callback) {
 							return callback('WRONG_WHERE_FIELD_VALUE');
 
 						// добиваем алиасом
-						if(_.has(full_field, 'alias'))
+						if(!_.has(full_field, 'alias'))
 							full_field.alias = params.alias;
 
 						// добиваем оператором сравнения
-						if(_.has(full_field, 'comparsion'))
+						if(!_.has(full_field, 'comparsion'))
 							full_field.comparsion = '=';
+						else
+							full_field.comparsion = full_field.comparsion.toLowerCase();
 
 						// добиваем колонками, по которым будем сравнивать
 						if(!_.has(full_field, 'columns'))
@@ -142,7 +145,6 @@ Essence.get = function(fields, params, callback) {
 
 
 						// корректируем оператор сравнения
-						if(full_field.columns.length > 1) full_field.comparsion = 'in';
 						var sql_comparsion = {
 							'in': 'in',
 							'like': 'like',
@@ -155,6 +157,7 @@ Essence.get = function(fields, params, callback) {
 							'=>': 'gte',
 						}
 						if(!_.has(sql_comparsion, full_field.comparsion)) return callback('WRONG_WHERE_FIELD_COMPARSION');
+						else full_field.comparsion = sql_comparsion[full_field.comparsion];
 
 
 						// ------- записываем типизированные объекты по алиасам таблиц и полей ---------
@@ -167,6 +170,8 @@ Essence.get = function(fields, params, callback) {
 							full_field.sql_obj = join.join;
 						}
 
+						console.log('full_field', _.omit(full_field, 'sql_obj'));
+
 						// columns
 						var typed_columns = []
 						_.forEach(full_field.columns, function(column) {
@@ -176,10 +181,15 @@ Essence.get = function(fields, params, callback) {
 
 						if(full_field.columns.length > 1) new Error('NOT_IMPLEMENTED');
 
-						var where_clause_on_this_step = full_field.columns[0][ sql_comparsion[full_field.comparsion] ]( full_field.value );
+						var where_clause_on_this_step = full_field.columns[0][ full_field.comparsion ]( full_field.value );
+						if(full_field.columns.length > 1)
+							for(var i=1; i<full_field.columns.length; i++)
+								where_clause_on_this_step = where_clause_on_this_step.or(full_field.columns[i][ full_field.comparsion ]( full_field.value ));
 						
-						if(where_clause == null) where_clause = where_clause_on_this_step;
-						else where_clause.and(where_clause_on_this_step);
+						if(where_clause) where_clause = where_clause.and(where_clause_on_this_step);
+						else where_clause = where_clause_on_this_step;
+
+						console.log('where_clause', where_clause.toQuery());
 					});
 					
 					_query = _query.where(where_clause);
@@ -191,7 +201,7 @@ Essence.get = function(fields, params, callback) {
 				function(callback) {
 					_query = _query.toQuery();
 
-					console.log(_query);
+					console.log('\n', _query);
 
 					client.query(_query.text, _query.values, callback);
 				},
