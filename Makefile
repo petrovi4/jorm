@@ -9,4 +9,7 @@ test:
 test_select:
 	@NODE_ENV=test $(MOCHA) -R spec -S ./test/5.select.js
 
+test_order:
+	@NODE_ENV=test $(MOCHA) -R spec -S ./test/6.order_limit_offset.js
+
 .PHONY: test

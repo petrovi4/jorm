@@ -65,8 +65,7 @@ Essence.get = function(fields, params, callback) {
 					params.alias = params.alias || uuid.v4().replace(/-/g, '');
 
 					params.fields = params.fields || getSelectFields(_this);
-					params.fields = _.concat(params.fields, [params.demand]);
-					params.fields = _.compact(_.flatten(params.fields));
+					params.fields = _.compact(_.concat(params.fields, params.demand));
 					params.fields = fieldsWithAlias(_this._meta, params.fields, params.alias);
 
 					var fieldsToSelect = params.fields;
@@ -125,11 +124,11 @@ Essence.get = function(fields, params, callback) {
 
 						// ошибка - передана херня в качестве описания поля
 						if(typeof full_field != 'object')
-							return callback('WRONG_WHERE_FIELD_DEFINITION');
+							return callback({errCode: 'WRONG_WHERE_FIELD_DEFINITION'});
 
 						// ошибка - нет value
 						if(!_.has(full_field, 'value'))
-							return callback('WRONG_WHERE_FIELD_VALUE');
+							return callback({errCode: 'WRONG_WHERE_FIELD_VALUE'});
 
 						// добиваем алиасом
 						if(!_.has(full_field, 'alias'))
@@ -160,7 +159,7 @@ Essence.get = function(fields, params, callback) {
 							'>=': 'gte',
 							'=>': 'gte',
 						}
-						if(!_.has(sql_comparsion, full_field.comparsion)) return callback('WRONG_WHERE_FIELD_COMPARSION');
+						if(!_.has(sql_comparsion, full_field.comparsion)) return callback({errCode: 'WRONG_WHERE_FIELD_COMPARSION'});
 						else full_field.comparsion = sql_comparsion[full_field.comparsion];
 
 
@@ -170,7 +169,7 @@ Essence.get = function(fields, params, callback) {
 						if(full_field.alias == params.alias) full_field.sql_obj = _this._meta.sql;
 						else {
 							var join = _.find(params.join, {alias: full_field.alias});
-							if(!join) return callback('BAD_ALIAS_IN_WHERE_FIELD_DEFINITION');
+							if(!join) return callback({errCode: 'BAD_ALIAS_IN_WHERE_FIELD_DEFINITION'});
 							full_field.sql_obj = join.sql_obj;
 						}
 
@@ -196,9 +195,24 @@ Essence.get = function(fields, params, callback) {
 						console.log('where_clause', where_clause.toQuery());
 					});
 					
-					_query = _query.where(where_clause);
+					if(where_clause) _query = _query.where(where_clause);
 				
-					callback(null);
+					callback();
+				},
+
+				// Подготавливаем ORDER, LIMIT и OFFSET
+				function(callback) {
+					if(params.order){
+						var field_order_sql_obj = _this._meta.sql[params.order.field];
+
+						if(!field_order_sql_obj) return callback({errCode: 'WRONG_ORDER_DEFINITION'});
+						
+						var direction = params.order.direction || 'asc';
+						_query = _query.order(field_order_sql_obj[direction] );
+					}
+					if(params.limit) _query = _query.limit(params.limit);
+					if(params.offset) _query = _query.offset(params.offset);
+					callback();
 				},
 
 				// Делаем запрос в базу

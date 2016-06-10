@@ -5,16 +5,15 @@ Simple orm - just orm.
 
 ## Init
 
-Just init jorm parameters
-
+Just init jorm parameters:
 ```javascript
 var jormParams = {
 	connectionString: "postgres://user:password@server.com:5432/base", // required
-	logger: custom_logger, // optionsl object with log, error, warn and info methods
+	logger: custom_logger, // optional object with log, error, warn and info methods
 }
 ```
 
-db config
+db config:
 ```javascript
 var config = {
 	User: {
@@ -27,8 +26,8 @@ var config = {
 			email		: {public: 'light'}, // this field will be in public object by .getPublic() and .getPublic('light') method
 			phone		: {public: ['light', 'full']}, // this field will be in public object by .getPublic(), .getPublic('light') and .getPublic('full') method
 			is_alex		: {db: false, default: function(params){ return params.name == 'Alex' }}, // this field will be ignored in all db CRUD operations, but will be filled while user object created
-			comments_count: { db: 'demand', sql: 'COALESCE((SELECT count(*) FROM comment WHERE comment.user_id = "user".id),0)' }, // this field including in query by demand
-			post_count_cache: {sql: 'COALESCE(post_count_cache, 0)'}
+			post_count_cache: {sql: 'COALESCE(post_count_cache, 0)'}, // custom sql part for select column post_count_cache
+			comments_count: { db: 'demand', sql: 'COALESCE((SELECT count(*) FROM comment WHERE comment.user_id = "user".id),0)' }, // this field including in query only by demand
 		},
 
 		// Optional possible DB triggers - all combinations of 'select', 'insert', 'update', 'delete' commands, and 'after', 'before', 'error' events
@@ -41,7 +40,7 @@ var config = {
 };
 ```
 
-and init jorm
+and init jorm:
 ```javascript
 var jorm = require('jorm');
 var dto = new jorm(jormParams, config);
@@ -55,7 +54,7 @@ var newUser = jorm.User.create({name: 'John', email: 'john@connor.com'})
 
 ## Save
 
-If object's primary key field not defined, then make *insert*. Else make *update*
+If object's primary key field is *null* or *undefined*, then make *insert*. Else make *update*
 
 ```javascript
 newUser.save(function(err, user){
@@ -103,8 +102,8 @@ jorm.User.get({
 ```javascript
 jorm.User.get({
 	name 				:{comparsion: 'LIKE', value: '%a%'}, // 'where' by custom comparsion
-	any_field			:{comparsion: 'LIKE', columns: ['name','description'], value: '%b%'} // LIKE over name+description with "OR" clause
 	age_xyz				:{columns: ['age'], comparsion: '>', value: 20},	// 'columns' fields override key,  ...
+	any_field			:{comparsion: 'LIKE', columns: ['name','description'], value: '%b%'} // LIKE over name+description with "OR" clause
 	post_count			: [1,2,3] // 'in' clause
 	gender				: ['m','f', null] // => gender in ('m','f') or gender is null
 }, {
