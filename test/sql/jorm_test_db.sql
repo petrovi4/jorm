@@ -1,19 +1,3 @@
-/*
- Navicat Premium Data Transfer
-
- Source Server         : Local
- Source Server Type    : PostgreSQL
- Source Server Version : 90502
- Source Host           : localhost
- Source Database       : jorm_test
- Source Schema         : public
-
- Target Server Type    : PostgreSQL
- Target Server Version : 90502
- File Encoding         : utf-8
-
- Date: 05/29/2016 13:57:26 PM
-*/
 
 -- ----------------------------
 --  Sequence structure for comment_id_seq
@@ -65,7 +49,8 @@ CREATE TABLE "user" (
 	"created" timestamp(6) NOT NULL DEFAULT now(),
 	"name" varchar COLLATE "default",
 	"email" varchar COLLATE "default",
-	"hpassword" varchar COLLATE "default"
+	"hpassword" varchar COLLATE "default",
+	"post_count_cache" int4
 )
 WITH (OIDS=FALSE);
 
@@ -73,9 +58,10 @@ WITH (OIDS=FALSE);
 --  Records of user
 -- ----------------------------
 BEGIN;
-INSERT INTO "user" VALUES ('1', '2016-05-29 03:03:26.345506', 'Alex', 'alex@server.com', 'qweqwe');
-INSERT INTO "user" VALUES ('2', '2016-05-29 03:03:41.949489', 'John', 'john@server.com', 'asdasd');
-INSERT INTO "user" VALUES ('3', '2016-05-29 03:03:59.171153', 'Vika', 'vika@server.com', 'zxczxc');
+INSERT INTO "user" VALUES ('1', '2016-05-29 03:03:26.345506', 'Alex', 'alex@server.com', 'qweqwe', 2);
+INSERT INTO "user" VALUES ('2', '2016-05-29 03:03:41.949489', 'John', 'john@server.com', 'asdasd', 1);
+INSERT INTO "user" VALUES ('3', '2016-05-29 03:03:59.171153', 'Vika', 'vika@server.com', 'zxczxc', 1);
+INSERT INTO "user" VALUES ('4', '2016-05-29 03:04:13.434234', 'Boby', 'boby@server.com', 'dfgdfg');
 COMMIT;
 
 -- ----------------------------

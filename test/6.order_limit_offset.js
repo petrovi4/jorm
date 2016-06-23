@@ -10,7 +10,7 @@ describe("Run [ORDER-LIMIT-OFFSET] tests", function() {
 		}, function(err, users) {
 			expect(err).to.not.exist;
 			expect(users).to.exist;
-			expect(users).to.have.length(3);
+			expect(users).to.have.length.above(3);
 
 			expect(users[0]).to.have.property('id', 1);
 			expect(users[1]).to.have.property('id', 2);

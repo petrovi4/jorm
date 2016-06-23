@@ -37,9 +37,9 @@ function getSelectFields(essence) {
 function fieldsWithAlias (meta, fields, alias) {
 	return _.map(fields, function(field) {
 		if(_.has(meta.config.fields[field], 'sql'))
-			return meta.config.fields[field].sql + ' as "' + alias + '.' + field + '"';
+			return meta.config.fields[field].sql.replace('"'+meta.config.table+'"', '"'+alias+'"') + ' as "' + alias + '.' + field + '"';
 		else 
-			return meta.sql[field].as(alias+'.'+field);
+			return meta.sql.as(alias)[field].as(alias+'.'+field);
 	});
 }
 
@@ -63,6 +63,7 @@ Essence.get = function(fields, params, callback) {
 				// Подготавливаем запрашиваемые поля и алиасы для самой таблицы и джойнов
 				function(callback){
 					params.alias = params.alias || uuid.v4().replace(/-/g, '');
+					params.sql_obj = _this._meta.sql.as( params.alias );
 
 					params.fields = params.fields || getSelectFields(_this);
 					params.fields = _.compact(_.concat(params.fields, params.demand));
@@ -75,50 +76,124 @@ Essence.get = function(fields, params, callback) {
 						join.alias = join.alias || uuid.v4().replace(/-/g, '');
 						join.sql_obj = join.join._meta.sql.as(join.alias);
 
+						join.to = join.to || _this;
+						join.to_sql_obj = (join.to._meta.name == _this._meta.name) ? _this._meta.sql.as(params.alias) :
+							join.to._meta.sql.as( _.find(params.join, function(join){ return join.join._meta.name == join.to._meta.name }).alias );
+
 						join.fields = join.fields || getSelectFields(join.join);
 						join.fields = fieldsWithAlias(join.join._meta, join.fields, join.alias);
 
 						fieldsToSelect = _.concat(fieldsToSelect, join.fields);
 					});
 
-					_query = _this._meta.sql.select(fieldsToSelect);
+					_query = params.sql_obj.select( fieldsToSelect );
 
 					callback();
 				},
-			
-				// Подготавливаем поля WHERE из запроса
+
+				// Все JOIN'ы
+				function(callback) {
+					if(!params.join) return callback();
+
+					var joinSubQuery = params.sql_obj;
+
+					_.forEach(params.join, function(join) {
+						joinSubQuery = joinSubQuery.leftJoin(join.sql_obj)
+							.on( join.to_sql_obj[ join.parent_field ].equals( join.sql_obj[ join.field ] ) );
+					});
+
+					_query = _query.from( joinSubQuery );
+
+					callback();
+				},
+
+				// Подготавливаем полные определения полей для WHERE
 				function(callback){
 
 					// Полная сигнатура определениий всех колонок WHERE (см. README)
 					// { sql_obj: sql, columns: ['a','b'], comparsion: '>=', value: 3 }
 					var fields_with_full_description = [];
 
+					// Поля WHERE основной таблицы
+					_.forEach(fields, function(field_value, field_key) {
+						console.log('process', field_value, field_key);
+						
+						var full_field = {
+								alias: params.alias,
+								value: field_value, 
+								columns: [field_key],
+								comparsion: '=',
+								sql_obj: params.sql_obj,
+								and_or: field_value.and_or || 'and'
+						};
+
+						// массив {id: [1,2,3]} => where id in (1,2,3)
+						if(Array.isArray(field_value)) full_field.comparsion = 'in';
+						// простейшее определение {id: 3} => where id = 3
+						else if(typeof field_value == 'number' || typeof field_value == 'string') ;
+						// в значении уже полное определение
+						else _.assign(full_field, field_value);
+
+						fields_with_full_description.push(full_field)
+					});
+
+					// Поля WHERE сджойненных таблиц
+					_.forEach(params.join, function(join) {
+						_.forEach(join.where, function(field_value, field_key) {
+							
+							// простейшее определение {id: 3} => where id = 3
+							var full_field = {
+									alias: join.alias,
+									value: field_value, 
+									columns: [field_key],
+									comparsion: '=',
+									sql_obj: join.sql_obj,
+									and_or: field_value.and_or || 'and'
+							};
+
+							// массив {id: [1,2,3]} => where id in (1,2,3)
+							if(Array.isArray(field_value)) full_field.comparsion = 'in';
+							// простейшее определение {id: 3} => where id = 3
+							else if(typeof field_value == 'number' || typeof field_value == 'string') ;
+							// в значении уже полное определение
+							else _.assign(full_field, field_value);
+
+							fields_with_full_description.push(full_field)
+						});
+					});
+
+					// console.log('fields_with_full_description', fields_with_full_description);
+
+					// Определяем все sql колонки
+					_.forEach(fields_with_full_description, function(full_field) {
+						full_field.sql_columns = [];
+
+						_.forEach(full_field.columns, function(column) {
+							full_field.sql_columns.push(full_field.sql_obj[column]);
+						});
+					});
+
+					callback(null, fields_with_full_description);
+				},
+
+				// Подготавливаем WHERE запрос на основании полных определений полей
+				function(fields_with_full_description, callback){
+
 					var where_clause = null;
 
-					_.forEach(fields, function(field_value, field_key) {
-						console.log('\n\nProcess', field_value, field_key);
-						
-						var full_field = {};
+					var sql_comparsion = {
+						'in': 'in',
+						'like': 'like',
+						'=': 'equals',
+						'<': 'lt', 
+						'>': 'gt',
+						'<=': 'lte',
+						'=<': 'lte',
+						'>=': 'gte',
+						'=>': 'gte',
+					}
 
-						// -------- базовые сценарии определения поля --------
-
-						// простейшее определение {id: 3} => where id = 3
-						if(typeof field_value == 'number' || typeof field_value == 'string') 
-							full_field = { 
-								alias: params.alias,
-								value: field_value, 
-								columns: [field_key],
-								comparsion: '='
-							}
-						// массив {id: [1,2,3]} => where id in (1,2,3)
-						else if(Array.isArray(field_value)) 
-							full_field = { 
-								alias: params.alias,
-								value: field_value, 
-								columns: [field_key],
-								comparsion: 'in'
-							}
-						else _.assign(full_field, field_value);
+					_.forEach(fields_with_full_description, function(full_field) {
 
 						// ----------- дополняем поля по-умолчанию ----------
 
@@ -130,69 +205,32 @@ Essence.get = function(fields, params, callback) {
 						if(!_.has(full_field, 'value'))
 							return callback({errCode: 'WRONG_WHERE_FIELD_VALUE'});
 
-						// добиваем алиасом
-						if(!_.has(full_field, 'alias'))
-							full_field.alias = params.alias;
-
 						// добиваем оператором сравнения
 						if(!_.has(full_field, 'comparsion'))
 							full_field.comparsion = '=';
 						else
 							full_field.comparsion = full_field.comparsion.toLowerCase();
 
-						// добиваем колонками, по которым будем сравнивать
-						if(!_.has(full_field, 'columns'))
-							full_field.columns = [field_key];
-						else if(typeof full_field.columns == 'string')
-							full_field.columns = [full_field.columns];
-
-
 						// корректируем оператор сравнения
-						var sql_comparsion = {
-							'in': 'in',
-							'like': 'like',
-							'=': 'equals',
-							'<': 'lt', 
-							'>': 'gt',
-							'<=': 'lte',
-							'=<': 'lte',
-							'>=': 'gte',
-							'=>': 'gte',
-						}
 						if(!_.has(sql_comparsion, full_field.comparsion)) return callback({errCode: 'WRONG_WHERE_FIELD_COMPARSION'});
 						else full_field.comparsion = sql_comparsion[full_field.comparsion];
 
+						// console.log('full_field', _.omit(full_field, 'sql_obj'));
 
-						// ------- записываем типизированные объекты по алиасам таблиц и полей ---------
+						var where_clause_on_this_step = full_field.sql_columns[0][ full_field.comparsion ]( full_field.value );
+						if(full_field.sql_columns.length > 1)
+							for(var i=1; i<full_field.sql_columns.length; i++){
+								var where_column = full_field.sql_columns[i][ full_field.comparsion ]( full_field.value )
 
-						// sql объект, по которому делается where
-						if(full_field.alias == params.alias) full_field.sql_obj = _this._meta.sql;
-						else {
-							var join = _.find(params.join, {alias: full_field.alias});
-							if(!join) return callback({errCode: 'BAD_ALIAS_IN_WHERE_FIELD_DEFINITION'});
-							full_field.sql_obj = join.sql_obj;
-						}
+								where_clause_on_this_step = (full_field.and_or.toLowerCase() == 'and') ? 
+									where_clause_on_this_step.and(where_column):
+									where_clause_on_this_step.or(where_column);
+							}
 
-						console.log('full_field', _.omit(full_field, 'sql_obj'));
-
-						// columns
-						var typed_columns = []
-						_.forEach(full_field.columns, function(column) {
-							typed_columns.push( full_field.sql_obj[column] );
-						});
-						full_field.columns = typed_columns;
-
-						if(full_field.columns.length > 1) new Error('NOT_IMPLEMENTED');
-
-						var where_clause_on_this_step = full_field.columns[0][ full_field.comparsion ]( full_field.value );
-						if(full_field.columns.length > 1)
-							for(var i=1; i<full_field.columns.length; i++)
-								where_clause_on_this_step = where_clause_on_this_step.or(full_field.columns[i][ full_field.comparsion ]( full_field.value ));
-						
 						if(where_clause) where_clause = where_clause.and(where_clause_on_this_step);
 						else where_clause = where_clause_on_this_step;
 
-						console.log('where_clause', where_clause.toQuery());
+						// console.log('where_clause', where_clause.toQuery());
 					});
 					
 					if(where_clause) _query = _query.where(where_clause);
@@ -203,7 +241,7 @@ Essence.get = function(fields, params, callback) {
 				// Подготавливаем ORDER, LIMIT и OFFSET
 				function(callback) {
 					if(params.order){
-						var field_order_sql_obj = _this._meta.sql[params.order.field];
+						var field_order_sql_obj = params.sql_obj[params.order.field];
 
 						if(!field_order_sql_obj) return callback({errCode: 'WRONG_ORDER_DEFINITION'});
 						
@@ -227,31 +265,56 @@ Essence.get = function(fields, params, callback) {
 				// Парсим результаты
 				function(dataFromDB, callback) {
 					var result = [];
-					var joined_essences = {}
+					var joined_essences = [];
 
-					_.forEach(dataFromDB.rows, function(row) {
+					_.forEach(dataFromDB.rows, function(row) {						
+
 						var essence = new Essence(jorm[_this._meta.name], row, params.alias);
-						if(!_.find(result, {id: essence.id})) 
+						if(!_.find(result, {id: essence.id})){
 							result.push(essence);
+						}
 
-						_.forEach(params.join, function(join) {
+						_.forEach(params.join, function(join) {							
 							essence = new Essence(jorm[join.join._meta.name], row, join.alias);
-							if(!_.find(joined_essences[join.join._meta.name], {id: essence.id})) 
-								joined_essences[join.join._meta.name].push(essence);
+							if(!essence[join.join._meta.pk]) return;
+
+							console.log('essence', essence.getPublic());
+
+							if(!_.find(joined_essences, function(existing_essence) {
+								return existing_essence.id == essence.id && existing_essence._meta.name == essence._meta.name;
+							})){
+								joined_essences.push(essence);
+							}
 						})
 					});
+
 
 					callback(null, result, joined_essences);
 				},
 
 				// Собираем коллекцию объектов нужного типа и сджойненные объекты в одну коллекцию
 				function(result, joined_essences, callback) {
-					// тут код для сборки
-	
-					console.log(result.getPublic());
-					_.forEach(joined_essences, function(value, key) {
-						console.log(key, value.getPublic());
+					var all_essences = _.concat(result, joined_essences);
+
+					_.forEach(params.join, function(join) {
+
+						var child_essences = _.filter(all_essences, function(essence) {
+							return essence._meta.name == join.join._meta.name
+						});
+
+						_.forEach( child_essences, function(child_essence) {
+							var parent_essence = _.find(all_essences, function(parent_essence) {
+								return parent_essence._meta.name == join.to._meta.name && parent_essence[join.parent_field] == child_essence[join.field];
+							});
+							if(!parent_essence) console.log('parent_essences',result.getPublic(), '\n\n', 'child_essence', child_essence.getPublic());
+							parent_essence[child_essence._meta.name] = parent_essence[child_essence._meta.name] || [];
+							parent_essence[child_essence._meta.name].push(child_essence);
+
+						});
+
 					});
+
+					// console.log(JSON.stringify(result.getPublic(), null, '\t'));
 
 					callback(null, result);
 				}
@@ -338,7 +401,15 @@ Essence.prototype.delete = function(callback) {
 };
 
 Essence.prototype.getPublic = function(publicSchema) {
-	return _.pick(this, _.keys(this._meta.config.fields));
+	var _this = this;
+
+	var public_copy = _.pick(this, _.keys(this._meta.config.fields));
+	_.forEach(jorm, function(essence) {
+		if(essence._meta && _this[essence._meta.name]) 
+			public_copy[essence._meta.name] = _this[essence._meta.name].getPublic();
+	});
+
+	return public_copy;
 }
 
 module.exports = Essence;

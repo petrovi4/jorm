@@ -12,7 +12,7 @@ var config = {
 			hpassword					: {},
 			password					: { db: false },
 			post_count_cache	: { db: ['select','update'], default: 0, sql: 'COALESCE(post_count_cache, 0)' },
-			comments_count		: { db: 'demand', sql: 'COALESCE((SELECT count(*) FROM comment WHERE comment.user_id = "user".id),0)' },
+			comments_count		: { db: 'demand', sql: 'COALESCE((SELECT count(*) FROM "comment" WHERE "comment"."user_id" = "user"."id"),0)' },
 		},
 		init					: function() { if(!this.hpassword) this.hpassword = this.email+this.password },
 	},
@@ -24,7 +24,7 @@ var config = {
 			created					: { default: function(params){ return new Date() } },
 			user_id					: { public: ['full'] },
 			text						: { public: true },
-			comments_count	: { db: 'select', default: 0 },
+			comments_count	: { db: 'demand', default: 0 },
 		},
 	},
 

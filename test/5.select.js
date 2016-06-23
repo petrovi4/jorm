@@ -82,7 +82,7 @@ describe("Run [SELECT] tests", function() {
 
 	it('Check select by two columns and custom comparsion', function(done) {
 		dto.User.get({ 
-			any_field: {columns:['name', 'email'], comparsion: 'like', value: '%lex'}
+			any_field: {columns:['name', 'email'], comparsion: 'like', value: '%lex', and_or: 'or'}
 		}, function(err, users) {
 			expect(err).to.not.exist;
 			expect(users).to.exist;

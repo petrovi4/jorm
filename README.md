@@ -27,7 +27,7 @@ var config = {
 			phone		: {public: ['light', 'full']}, // this field will be in public object by .getPublic(), .getPublic('light') and .getPublic('full') method
 			is_alex		: {db: false, default: function(params){ return params.name == 'Alex' }}, // this field will be ignored in all db CRUD operations, but will be filled while user object created
 			post_count_cache: {sql: 'COALESCE(post_count_cache, 0)'}, // custom sql part for select column post_count_cache
-			comments_count: { db: 'demand', sql: 'COALESCE((SELECT count(*) FROM comment WHERE comment.user_id = "user".id),0)' }, // this field including in query only by demand
+			comments_count: { db: 'demand', sql: 'COALESCE((SELECT count(*) FROM "comment" WHERE "comment"."user_id" = "user"."id"),0)' }, // this field including in query only by demand. All tables and columns must be with quotes (")
 		},
 
 		// Optional possible DB triggers - all combinations of 'select', 'insert', 'update', 'delete' commands, and 'after', 'before', 'error' events
@@ -103,7 +103,7 @@ jorm.User.get({
 jorm.User.get({
 	name 				:{comparsion: 'LIKE', value: '%a%'}, // 'where' by custom comparsion
 	age_xyz				:{columns: ['age'], comparsion: '>', value: 20},	// 'columns' fields override key,  ...
-	any_field			:{comparsion: 'LIKE', columns: ['name','description'], value: '%b%'} // LIKE over name+description with "OR" clause
+	any_field			:{comparsion: 'LIKE', columns: ['name','description'], value: '%b%', and_or: 'OR'} // LIKE over name+description with "OR" clause
 	post_count			: [1,2,3] // 'in' clause
 	gender				: ['m','f', null] // => gender in ('m','f') or gender is null
 }, {
@@ -146,15 +146,15 @@ jorm.Post.get({
 });
 ```
 
-Join same table twice (join to joined table)
+Join same table twice (join to joined table) with WHERE cluase by two tables
 ```javascript
 jorm.Post.get({
-
+		created: {comparsion: '>', value: new Date()}
 	},{
 	join: [
-		{join: dto.User, to:dto.Post, field: 'id', right_field: 'user_id'},
-		{join: dto.Comment, left_field: 'id', right_field: 'user_id'}, // if 'to' omitted, main essence implied (Post in this example)
-		{join: dto.User, to:dto.Comment, field: 'id', right_field: 'user_id'}
+		{join: dto.User, to:dto.Post, field: 'id', parent_field: 'user_id'},
+		{join: dto.Comment, field: 'id', parent_field: 'user_id'}, // if 'to' omitted, main essence implied (Post in this example)
+		{join: dto.User, to:dto.Comment, field: 'id', parent_field: 'user_id', where: {created: {comparsion: '>', value: new Date()}} }
 	]}, function(err, posts){
 	if(err) return console.error(err);
 	console.log(posts.getPublic()); // each post contains User and Comment fields, each Comment contains User itself

@@ -12,4 +12,7 @@ test_select:
 test_order:
 	@NODE_ENV=test $(MOCHA) -R spec -S ./test/6.order_limit_offset.js
 
+test_join:
+	@NODE_ENV=test $(MOCHA) -R spec -S ./test/7.join.js
+
 .PHONY: test
