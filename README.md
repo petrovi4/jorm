@@ -138,6 +138,10 @@ Simple join table with minimum options
 ```javascript
 jorm.Post.get({
 	},{
+	order: [
+		{field: 'id'},
+		{dto: dto.User, field: 'id'}
+	], // Order can be defined multiply times and can be over joined dto too
 	join: [
 		{join: dto.User, field: 'id', parent_field: 'user_id'}
 	]}, function(err, posts){

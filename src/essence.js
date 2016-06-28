@@ -71,20 +71,32 @@ Essence.get = function(fields, params, callback) {
 
 					var fieldsToSelect = params.fields;
 
+					var join_error;
 					_.forEach(params.join, function(join) {
-
 						join.alias = join.alias || uuid.v4().replace(/-/g, '');
 						join.sql_obj = join.join._meta.sql.as(join.alias);
 
 						join.to = join.to || _this;
-						join.to_sql_obj = (join.to._meta.name == _this._meta.name) ? _this._meta.sql.as(params.alias) :
-							join.to._meta.sql.as( _.find(params.join, function(join){ return join.join._meta.name == join.to._meta.name }).alias );
+						if(join.to._meta.name == _this._meta.name) {
+							join.to_sql_obj = _this._meta.sql.as(params.alias);
+							join.to_alias = params.alias;
+						}
+						else {
+							var parent_join = _.find(params.join, function(parent_join){ return parent_join.join._meta.name == join.to._meta.name });
+							if(!parent_join) {
+								join_error = {errCode: 'NO_PARENT_JOIN_ESSENCE'}; 
+								return false 
+							};
+							join.to_sql_obj = join.to._meta.sql.as( parent_join.alias );
+							join.to_alias = parent_join.alias;
+						}
 
 						join.fields = join.fields || getSelectFields(join.join);
 						join.fields = fieldsWithAlias(join.join._meta, join.fields, join.alias);
 
 						fieldsToSelect = _.concat(fieldsToSelect, join.fields);
 					});
+					if(join_error) return callback(join_error);
 
 					_query = params.sql_obj.select( fieldsToSelect );
 
@@ -215,8 +227,6 @@ Essence.get = function(fields, params, callback) {
 						if(!_.has(sql_comparsion, full_field.comparsion)) return callback({errCode: 'WRONG_WHERE_FIELD_COMPARSION'});
 						else full_field.comparsion = sql_comparsion[full_field.comparsion];
 
-						// console.log('full_field', _.omit(full_field, 'sql_obj'));
-
 						var where_clause_on_this_step = full_field.sql_columns[0][ full_field.comparsion ]( full_field.value );
 						if(full_field.sql_columns.length > 1)
 							for(var i=1; i<full_field.sql_columns.length; i++){
@@ -232,22 +242,37 @@ Essence.get = function(fields, params, callback) {
 
 						// console.log('where_clause', where_clause.toQuery());
 					});
-					
+
 					if(where_clause) _query = _query.where(where_clause);
-				
+
 					callback();
 				},
 
 				// Подготавливаем ORDER, LIMIT и OFFSET
 				function(callback) {
-					if(params.order){
-						var field_order_sql_obj = params.sql_obj[params.order.field];
 
-						if(!field_order_sql_obj) return callback({errCode: 'WRONG_ORDER_DEFINITION'});
-						
-						var direction = params.order.direction || 'asc';
-						_query = _query.order(field_order_sql_obj[direction] );
+					if(params.order){
+
+						if(!Array.isArray(params.order)) params.order = [params.order];
+
+						_.forEach(params.order, function(order) {
+							order.dto = order.dto || _this;
+							order.alias = order.dto._meta.name == _this._meta.name ? 
+								params.alias : 
+								_.find(params.join, function(join) {return join.join._meta.name == order.dto._meta.name}).alias;
+
+							console.log('order.alias', order.alias);
+
+							order.sql_obj = order.dto._meta.sql.as(order.alias);
+							var field_order_sql_obj = order.sql_obj[order.field];
+
+							if(!field_order_sql_obj) return callback({errCode: 'WRONG_ORDER_DEFINITION'});
+							
+							var direction = order.direction || 'asc';
+							_query = _query.order(field_order_sql_obj[direction] );
+						});							
 					}
+
 					if(params.limit) _query = _query.limit(params.limit);
 					if(params.offset) _query = _query.offset(params.offset);
 					callback();
@@ -264,59 +289,62 @@ Essence.get = function(fields, params, callback) {
 
 				// Парсим результаты
 				function(dataFromDB, callback) {
-					var result = [];
-					var joined_essences = [];
+					var result = {};
+					result[params.alias] = [];
 
 					_.forEach(dataFromDB.rows, function(row) {						
-
 						var essence = new Essence(jorm[_this._meta.name], row, params.alias);
-						if(!_.find(result, {id: essence.id})){
-							result.push(essence);
+						
+						var already_added = _.find(result[params.alias], function(existing_essence) { 
+							return existing_essence[_this._meta.pk] == essence[_this._meta.pk];
+						})
+
+						if(!already_added){
+							result[params.alias].push(essence);
 						}
 
-						_.forEach(params.join, function(join) {							
+						_.forEach(params.join, function(join) {			
+
 							essence = new Essence(jorm[join.join._meta.name], row, join.alias);
 							if(!essence[join.join._meta.pk]) return;
 
-							console.log('essence', essence.getPublic());
+							if(!result[join.alias]) result[join.alias] = [];
 
-							if(!_.find(joined_essences, function(existing_essence) {
-								return existing_essence.id == essence.id && existing_essence._meta.name == essence._meta.name;
-							})){
-								joined_essences.push(essence);
+							var already_added = _.find(result[join.alias], function(existing_essence) { 
+								return existing_essence[join.join._meta.pk] == essence[join.join._meta.pk];
+							})
+
+							if(!already_added){
+								result[join.alias].push(essence);
 							}
 						})
 					});
 
-
-					callback(null, result, joined_essences);
+					callback(null, result);
 				},
 
 				// Собираем коллекцию объектов нужного типа и сджойненные объекты в одну коллекцию
-				function(result, joined_essences, callback) {
-					var all_essences = _.concat(result, joined_essences);
+				// function(result, joined_essences, callback) {
+				function(result, callback) {
+					// var all_essences = _.concat(result, joined_essences);
 
 					_.forEach(params.join, function(join) {
 
-						var child_essences = _.filter(all_essences, function(essence) {
-							return essence._meta.name == join.join._meta.name
-						});
+						_.forEach( result[join.alias], function(child_essence) {
 
-						_.forEach( child_essences, function(child_essence) {
-							var parent_essence = _.find(all_essences, function(parent_essence) {
-								return parent_essence._meta.name == join.to._meta.name && parent_essence[join.parent_field] == child_essence[join.field];
+							var parent_essence = _.find(result[join.to_alias], function(parent_essence) {
+								return parent_essence[join.parent_field] == child_essence[join.field];
 							});
-							if(!parent_essence) console.log('parent_essences',result.getPublic(), '\n\n', 'child_essence', child_essence.getPublic());
-							parent_essence[child_essence._meta.name] = parent_essence[child_essence._meta.name] || [];
-							parent_essence[child_essence._meta.name].push(child_essence);
 
+							if(!parent_essence[child_essence._meta.name]) parent_essence[child_essence._meta.name] = [];
+							parent_essence[child_essence._meta.name].push(child_essence);
 						});
 
 					});
 
 					// console.log(JSON.stringify(result.getPublic(), null, '\t'));
 
-					callback(null, result);
+					callback(null, _.values(result[params.alias]));
 				}
 
 			], function (err, result) {
@@ -403,10 +431,20 @@ Essence.prototype.delete = function(callback) {
 Essence.prototype.getPublic = function(publicSchema) {
 	var _this = this;
 
-	var public_copy = _.pick(this, _.keys(this._meta.config.fields));
+	var field_keys = [];
+	_.forEach(this._meta.config.fields, function(field_value, field_key) {
+		if(
+			(!publicSchema && field_value.public) ||
+			(field_value.public == publicSchema) ||
+			(_.indexOf(field_value.public, publicSchema) >= 0)
+			)
+			field_keys.push(field_key);
+	});
+
+	var public_copy = _.pick(this, field_keys);
 	_.forEach(jorm, function(essence) {
 		if(essence._meta && _this[essence._meta.name]) 
-			public_copy[essence._meta.name] = _this[essence._meta.name].getPublic();
+			public_copy[essence._meta.name] = _this[essence._meta.name].getPublic(publicSchema);
 	});
 
 	return public_copy;

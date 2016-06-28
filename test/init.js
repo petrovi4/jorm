@@ -11,7 +11,7 @@ var config = {
 			email							: { public: 'admin' },
 			hpassword					: {},
 			password					: { db: false },
-			post_count_cache	: { db: ['select','update'], default: 0, sql: 'COALESCE(post_count_cache, 0)' },
+			post_count_cache	: { db: ['select','update'], default: 0, sql: 'COALESCE("user"."post_count_cache", 0)' },
 			comments_count		: { db: 'demand', sql: 'COALESCE((SELECT count(*) FROM "comment" WHERE "comment"."user_id" = "user"."id"),0)' },
 		},
 		init					: function() { if(!this.hpassword) this.hpassword = this.email+this.password },

@@ -26,7 +26,7 @@ CREATE TABLE "comment" (
 	"created" timestamp(6) NOT NULL DEFAULT now(),
 	"post_id" int4 NOT NULL,
 	"user_id" int4 NOT NULL,
-	"test" varchar NOT NULL COLLATE "default"
+	"text" varchar NOT NULL COLLATE "default"
 )
 WITH (OIDS=FALSE);
 
