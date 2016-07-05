@@ -19,3 +19,6 @@ test.js
 .idea
 
 dump.rdb
+
+.DS_Store
+
