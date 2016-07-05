@@ -433,10 +433,11 @@ Essence.prototype.getPublic = function(publicSchema) {
 
 	var field_keys = [];
 	_.forEach(this._meta.config.fields, function(field_value, field_key) {
+
 		if(
 			(!publicSchema && field_value.public) ||
-			(field_value.public == publicSchema) ||
-			(_.indexOf(field_value.public, publicSchema) >= 0)
+			(publicSchema && field_value.public == publicSchema) ||
+			(publicSchema && _.indexOf(field_value.public, publicSchema) >= 0)
 			)
 			field_keys.push(field_key);
 	});

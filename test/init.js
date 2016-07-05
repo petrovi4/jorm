@@ -7,7 +7,7 @@ var config = {
 		fields : {
 			id								: { pk: true, public: true },
 			created						: { default: function(params){ return new Date() } },
-			name							: { public: ['full', 'admin'] },
+			name							: { public: ['lite', 'admin'] },
 			email							: { public: 'admin' },
 			hpassword					: {},
 			password					: { db: false },
@@ -22,7 +22,7 @@ var config = {
 		fields : {
 			id							: { pk: true, public: true },
 			created					: { default: function(params){ return new Date() } },
-			user_id					: { public: ['full'] },
+			user_id					: { public: ['lite'] },
 			text						: { public: true },
 			comments_count	: { db: 'demand', default: 0 },
 		},
@@ -33,8 +33,8 @@ var config = {
 		fields : {
 			id							: { pk: true, public: true },
 			created					: { default: function(params){ return new Date() } },
-			post_id					: { public: ['full'] },
-			user_id					: { public: ['full'] },
+			post_id					: { public: ['lite'] },
+			user_id					: { public: ['lite'] },
 			text						: { public: true },
 		},
 	},
