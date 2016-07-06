@@ -31,9 +31,27 @@ var config = {
 		},
 
 		// Optional possible DB triggers - all combinations of 'select', 'insert', 'update', 'delete' commands, and 'after', 'before', 'error' events
-		select_before	: function(client, callback) { callback(); },
-		insert_after	: function(client, dataFromDB, callback){ callback(null, dataFromDB); },
-		delete_error	: function(err, callback) { callback(); },
+		select_before	: function(params, client, callback){
+			if(params.make_ext_request){ // make_ext_request - just for example
+				// ... make some action, incl. sql request with [client] ...
+				callback(err)
+			}
+			else callback();
+		};
+		insert_after	: function(params, client, dataFromDB, callback){
+			if(params.make_ext_request){ // make_ext_request - just for example
+				// ... make some action, incl. sql request with [client] ...
+				callback(null, dataFromDB)
+			};
+			else callback(null, dataFromDB); 
+		},
+		update_error	: function(err, params, client, callback){
+			if(params.make_ext_request){ // make_ext_request - just for example
+				// ... make some action, incl. sql request with [client] ...
+				callback(err)
+			};
+			else callback(err); 
+		},
 
 		init 			: function() {this.hpassword = someFuncToHashPass(this.email, this.password)} // called after object created
 	}
@@ -56,11 +74,15 @@ var newUser = jorm.User.create({name: 'John', email: 'john@connor.com'})
 
 If object's primary key field is *null* or *undefined*, then make *insert*. Else make *update*
 
+*save* and *delete* supports optional *params*, which will be transfered to handlers
+
 ```javascript
 newUser.save(function(err, user){
 	if(err) return console.error(err);
 	console.log(user.getPublic());
 });
+// or
+newUser.save({make_ext_request: true}, callback);
 ```
 
 ## Update
@@ -80,6 +102,8 @@ user.delete(function(err){
 	if(err) return console.error(err);
 	console.log('deleted');
 })
+// or
+user.delete({make_ext_request: true});
 ```
 
 ## Get it from DB
@@ -165,62 +189,32 @@ jorm.Post.get({
 });
 ```
 
+#CRUD Handlers
+Each CRUD function can be wrapped with *before* and *after* handler.
 
-
-
-v2
-=========================
-v1
-
-
-
-
-
-## Defining and overriding methods in model
-
-In this example model 'user':
-- has additional method getHPassword
-- override default method 'getPublic'
-- override default initialization method 'init'
-- override default method to get param for 'where' clause 
-- override fields for 'select' clause
+Additionaly, parameter {transaction: true} for get, save and delete make handlers transaction safe.
 
 ```javascript
-var userModel = {
-	table: 'user',
-	fields:{
-		id 							: {},
-		email						: {},
-		hpassword					: {},
-		name						: {},
-		surname						: {},
-		birthdate					: {},
-	},
-	init: function (params) {
-		if(params.password){
-			this.hpassword = this.getHPassword(this.email, params.password, 'salt_example');
-		}
-	},
-	getHPassword: function (login, password, salt) {
-		var hpassword = crypto.createHash('sha1').update(login + password + salt).digest('hex');
-		return hpassword;
-	},
-	getPublic: function(){
-		var publicDto = this.getPublicInternal();
-		delete publicDto.hpassword;
-		return publicDto;
-	},
-	whereParam: function(prefix, param, value, index) {
-		if(param != 'addCommentsCount'){
-			return this.whereParamInternal(prefix, param, value, index);
-		}
-	},
-	selectFields: function(params, prefix) {
-		var selectFields = this.selectFieldsInternal(params, prefix);
-		if(params.addCommentsCount){
-			selectFields += ', (select COUNT(*) from comment where comment.post_id = post.id) as commentsCount';
-		}
-		return selectFields;
+var config = {
+	User: {
+		table: 'user',
+		fields: {
+		},
+		insert_before	: function(params, client, callback) { 
+			client.query('INSERT INTO "trace_log"(entry) values($1)', ["this_log_for_test_transactions"], function(err) {
+				callback(err);
+			});
+		},
 	}
-}
+};
+// ...
+var user = dto.User.create();
+user.save({transaction: true}, function(err, user){
+	// if inserting this user fails, no trace log entry added in insert_before because of automatic rollback transaction in error handler
+})
 ```
+
+
+#Tests
+See 'test' folder
+

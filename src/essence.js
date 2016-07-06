@@ -44,17 +44,19 @@ function fieldsWithAlias (meta, fields, alias) {
 }
 
 
-Essence.get = function(fields, params, callback) {
-	if(typeof params == 'function') {
-		callback = params;
-		params = {};
+Essence.get = function(fields, get_params, callback) {
+	if(typeof get_params == 'function') {
+		callback = get_params;
+		get_params = {};
 	}
+
+	var params = _.assign({}, get_params);
 
 	var _this = this;
 	var _query;
 
 	jorm.dbLabmda(
-		this._meta['select_before'],
+		jorm[_this._meta.name]['select_before'],
 
 		function(client, callback) {
 
@@ -128,7 +130,7 @@ Essence.get = function(fields, params, callback) {
 
 					// Поля WHERE основной таблицы
 					_.forEach(fields, function(field_value, field_key) {
-						console.log('process', field_value, field_key);
+						// console.log('process', field_value, field_key);
 						
 						var full_field = {
 								alias: params.alias,
@@ -136,7 +138,7 @@ Essence.get = function(fields, params, callback) {
 								columns: [field_key],
 								comparsion: '=',
 								sql_obj: params.sql_obj,
-								and_or: field_value.and_or || 'and'
+								and_or: (field_value && field_value.and_or) || 'and'
 						};
 
 						// массив {id: [1,2,3]} => where id in (1,2,3)
@@ -261,7 +263,7 @@ Essence.get = function(fields, params, callback) {
 								params.alias : 
 								_.find(params.join, function(join) {return join.join._meta.name == order.dto._meta.name}).alias;
 
-							console.log('order.alias', order.alias);
+							// console.log('order.alias', order.alias);
 
 							order.sql_obj = order.dto._meta.sql.as(order.alias);
 							var field_order_sql_obj = order.sql_obj[order.field];
@@ -357,23 +359,28 @@ Essence.get = function(fields, params, callback) {
 			});
 		},
 
-		this._meta['select_after'],
-		this._meta['select_error'],
+		jorm[_this._meta.name]['select_after'],
+		jorm[_this._meta.name]['select_error'],
+
+		get_params,
 
 		function(err, dataFromDB) {
-			callback(err, dataFromDB, _query);
+			callback && callback(err, dataFromDB, _query);
 		}
 	);
 }
 
-Essence.prototype.save = function(callback) {
+Essence.prototype.save = function(params, callback) {
 	var _this = this;
 	var _query;
+
+	if(!callback && typeof params == "function") { callback = params; params = {} };
+	if(typeof params == "function") params = params();
 
 	var command = this[this._meta.pk] ? 'update' : 'insert';
 
 	jorm.dbLabmda(
-		this._meta[command+'_before'],
+		jorm[_this._meta.name][command+'_before'],
 
 		function(client, callback) {
 			
@@ -389,41 +396,56 @@ Essence.prototype.save = function(callback) {
 			_query = command == 'insert' ? 
 				_query.returning().toQuery() : 
 				_query.where( _this._meta.sql[_this._meta.pk].equals(_this[_this._meta.pk]) ).toQuery();
-			// console.log(_query.text, _query.values);
+			
+			console.log('\n', _query);
+
 			client.query(_query.text, _query.values, callback);
 		},
 
-		this._meta[command+'_after'],
-		this._meta[command+'_error'],
+		jorm[_this._meta.name][command+'_after'],
+		jorm[_this._meta.name][command+'_error'],
+
+		params,
 
 		function(err, dataFromDB) {
+			if(err) console.error(err);
+
 			if(!err && command == 'insert')	_this[_this._meta.pk] = dataFromDB.rows[0][_this._meta.pk];
-			callback(err, _this, _query);
+			callback && callback(err, _this, _query);
 		}
 	);
 };
 
-Essence.prototype.delete = function(callback) {
+Essence.prototype.delete = function(params, callback) {
 	var _this = this;
 	var _query;
 
+	if(!callback && typeof params == "function") { callback = params; params = {} };
+	if(typeof params == "function") params = params();
+
 	jorm.dbLabmda(
-		this._meta['delete_before'],
+		jorm[_this._meta.name]['delete_before'],
 
 		function(client, callback) {
 			var sql = _this._meta.sql;
 			var pk = _this._meta.pk;
 
 			_query = _this._meta.sql.delete().where( _this._meta.sql[_this._meta.pk].equals( _this[_this._meta.pk] ) ).toQuery();
-			// console.log(_query.text, _query.values);
+			
+			console.log('\n', _query);
+			
 			client.query(_query.text, _query.values, callback);
 		},
 
-		this._meta['delete_after'],
-		this._meta['delete_error'],
+		jorm[_this._meta.name]['delete_after'],
+		jorm[_this._meta.name]['delete_error'],
+
+		params,
 
 		function(err) {
-			callback(err, _query);
+			if(err) console.error(err);
+
+			callback && callback(err, _query);
 		}
 	);
 };

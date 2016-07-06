@@ -27,7 +27,7 @@ module.exports = function(jormParams, config) {
 
 	_.assign(this, {logger: console}, jormParams);
 
-	this.dbLabmda = function (beforeTrigger, action, afterTrigger, errorTrigger, callback) {
+	this.dbLabmda = function (beforeTrigger, action, afterTrigger, errorTrigger, trigger_params, callback) {
 		var _client;
 		var _donePG;
 
@@ -37,13 +37,13 @@ module.exports = function(jormParams, config) {
 			function(callback){
 				pg.connect(jorm.connectionString, callback);
 			},
-		
+
 			// Триггер before
 			function(client, donePG, callback){
 				_client = client
 				_donePG = donePG;
 
-				beforeTrigger ? beforeTrigger(client, callback) : callback();
+				trigger_params.transaction ? jorm.begin_transaction(trigger_params, _client, beforeTrigger, callback) : beforeTrigger(trigger_params, _client, callback);
 			},
 
 			// Выполняем основной функционал запроса
@@ -53,7 +53,7 @@ module.exports = function(jormParams, config) {
 
 			// Завершаем триггером after
 			function(dataFromDB, callback) {
-				afterTrigger ? afterTrigger(_client, dataFromDB, callback) : callback(null, dataFromDB);
+				trigger_params.transaction ? jorm.commit_transaction(trigger_params, _client, dataFromDB, afterTrigger, callback) : afterTrigger(trigger_params, _client, dataFromDB, callback);
 			}
 
 		], function (err, dataFromDB) {
@@ -63,20 +63,40 @@ module.exports = function(jormParams, config) {
 				callback(err, dataFromDB);			
 			}
 
-			(err && errorTrigger) ? errorTrigger(err, complete) : complete();
+			if(err)
+				trigger_params.transaction ? jorm.rollback_transaction(err, trigger_params, _client, errorTrigger, complete) : errorTrigger(err, trigger_params, _client, complete);
+			else complete();
 		});
 	}
 
-	this.default_before = function (client, callback) {
+	this.default_before = function (params, client, callback) {
 		callback();
 	};
 
-	this.default_after = function (client, dataFromDB, callback) {
+	this.default_after = function (params, client, dataFromDB, callback) {
 		callback(null, dataFromDB);
 	}
 
-	this.default_error = function (err, callback) {
+	this.default_error = function (err, params, client, callback) {
 		callback();
+	},
+
+	this.begin_transaction = function (params, client, before_handler, callback) {
+		client.query('BEGIN', function(err){
+			before_handler(params, client, callback);
+		});
+	};
+
+	this.commit_transaction = function (params, client, dataFromDB, after_handler, callback) {
+		client.query('COMMIT', function(err){
+			after_handler(params, client, dataFromDB, callback);
+		});
+	}
+
+	this.rollback_transaction = function (err, params, client, error_handler, callback) {
+		client.query('ROLLBACK', function(err){
+			error_handler(err, params, client, callback);
+		});
 	}
 
 	_.forEach(config, function(essenceConfig, essenceName) {
