@@ -459,7 +459,8 @@ Essence.prototype.getPublic = function(publicSchema) {
 		if(
 			(!publicSchema && field_value.public) ||
 			(publicSchema && field_value.public == publicSchema) ||
-			(publicSchema && _.indexOf(field_value.public, publicSchema) >= 0)
+			(publicSchema && _.indexOf(field_value.public, publicSchema) >= 0) ||
+			(field_value === true)
 			)
 			field_keys.push(field_key);
 	});
