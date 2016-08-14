@@ -126,6 +126,8 @@ jorm.User.get({
 ```javascript
 jorm.User.get({
 	name 				:{comparsion: 'LIKE', value: '%a%'}, // 'where' by custom comparsion
+	email 				:{comparsion: 'is not null'}, // 'is null' comparsion
+	phone 				:{comparsion: 'is null'}, // 'is not null' comparsion
 	age_xyz				:{columns: ['age'], comparsion: '>', value: 20},	// 'columns' fields override key,  ...
 	any_field			:{comparsion: 'LIKE', columns: ['name','description'], value: '%b%', and_or: 'OR'} // LIKE over name+description with "OR" clause
 	post_count			: [1,2,3] // 'in' clause

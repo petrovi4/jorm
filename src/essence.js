@@ -206,6 +206,8 @@ Essence.get = function(fields, get_params, callback) {
 						'=<': 'lte',
 						'>=': 'gte',
 						'=>': 'gte',
+						'is null': 'isNull',
+						'is not null': 'isNotNull',
 					}
 
 					_.forEach(fields_with_full_description, function(full_field) {
