@@ -183,6 +183,7 @@ Essence.get = function(fields, get_params, callback) {
 						full_field.sql_columns = [];
 
 						_.forEach(full_field.columns, function(column) {
+							if(!full_field.sql_obj[column]) throw new Error('No column [' + column + '] in dto object');
 							full_field.sql_columns.push(full_field.sql_obj[column]);
 						});
 					});
