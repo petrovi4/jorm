@@ -463,7 +463,7 @@ Essence.prototype.getPublic = function(publicSchema) {
 			(!publicSchema && field_value.public) ||
 			(publicSchema && field_value.public == publicSchema) ||
 			(publicSchema && Array.isArray(field_value.public) && _.indexOf(field_value.public, publicSchema) >= 0) ||
-			(publicSchema && _.indexOf(publicSchema, field_value.public) >= 0) ||
+			(publicSchema && Array.isArray(publicSchema) && _.indexOf(publicSchema, field_value.public) >= 0) ||
 			(field_value === true)
 			)
 			field_keys.push(field_key);
