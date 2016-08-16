@@ -338,14 +338,16 @@ Essence.get = function(fields, get_params, callback) {
 
 						_.forEach( result[join.alias], function(child_essence) {
 
-							var parent_essence = _.find(result[join.to_alias], function(parent_essence) {
+							var parent_essences = _.filter(result[join.to_alias], function(parent_essence) {
 								return parent_essence[join.parent_field] == child_essence[join.field];
 							});
 
-							var field_name = parent_essence._meta.config.fields[join.parent_field].alias ? join.alias : child_essence._meta.name;
-
-							if(!parent_essence[field_name]) parent_essence[field_name] = [];
-							parent_essence[field_name].push(child_essence);
+							_.forEach(parent_essences, function (parent_essence) {
+								var field_name = parent_essence._meta.config.fields[join.parent_field].alias ? join.alias : child_essence._meta.name;
+	
+								if(!parent_essence[field_name]) parent_essence[field_name] = [];
+								parent_essence[field_name].push(child_essence);
+							})
 						});
 
 					});
@@ -475,8 +477,6 @@ Essence.prototype.getPublic = function(publicSchema) {
 			if(field_value.alias) aliases_keys.push(field_value.alias);
 		}
 	});
-
-	console.log("field_keys\n", field_keys);
 
 	var public_copy = _.pick(this, field_keys);
 	
