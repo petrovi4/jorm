@@ -23,8 +23,8 @@ var config = {
 			created		: {default: function(params){ return new Date() }}, // field allows auto init default values
 			name		: {public: true}, // this field will be in public object by .getPublic() method with any parameter
 			hpassword	: {},
-			email		: {public: 'light'}, // this field will be in public object by .getPublic() and .getPublic('light') method
-			phone		: {public: ['light', 'full']}, // this field will be in public object by .getPublic(), .getPublic('light') and .getPublic('full') method
+			email		: {public: 'lite'}, // this field will be in public object by .getPublic() and .getPublic('lite') method
+			phone		: {public: ['lite', 'full']}, // this field will be in public object by .getPublic(), .getPublic('lite'), .getPublic('full') and .getPublic('lite','anyOther') methods
 			is_alex		: {db: false, default: function(params){ return params.name == 'Alex' }}, // this field will be ignored in all db CRUD operations, but will be filled while user object created
 			post_count_cache: {sql: 'COALESCE(post_count_cache, 0)'}, // custom sql part for select column post_count_cache
 			comments_count: { db: 'demand', sql: 'COALESCE((SELECT count(*) FROM "comment" WHERE "comment"."user_id" = "user"."id"),0)' }, // this field including in query only by demand. All tables and columns must be with quotes (")
