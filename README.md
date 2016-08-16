@@ -28,6 +28,8 @@ var config = {
 			is_alex		: {db: false, default: function(params){ return params.name == 'Alex' }}, // this field will be ignored in all db CRUD operations, but will be filled while user object created
 			post_count_cache: {sql: 'COALESCE(post_count_cache, 0)'}, // custom sql part for select column post_count_cache
 			comments_count: { db: 'demand', sql: 'COALESCE((SELECT count(*) FROM "comment" WHERE "comment"."user_id" = "user"."id"),0)' }, // this field including in query only by demand. All tables and columns must be with quotes (")
+			current_geo_id: {public:true, alias:'GeoCurrent'},
+			birth_geo_id  : {public:true, alias:'GeoBirth'} // specify alias to separete fields in get request with joined objects
 		},
 
 		// Optional possible DB triggers - all combinations of 'select', 'insert', 'update', 'delete' commands, and 'after', 'before', 'error' events

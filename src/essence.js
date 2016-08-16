@@ -75,10 +75,11 @@ Essence.get = function(fields, get_params, callback) {
 
 					var join_error;
 					_.forEach(params.join, function(join) {
-						join.alias = join.alias || uuid.v4().replace(/-/g, '');
+						join.to = join.to || _this;
+
+						join.alias = join.alias || join.to._meta.config.fields[join.parent_field].alias || uuid.v4().replace(/-/g, '');
 						join.sql_obj = join.join._meta.sql.as(join.alias);
 
-						join.to = join.to || _this;
 						if(join.to._meta.name == _this._meta.name) {
 							join.to_sql_obj = _this._meta.sql.as(params.alias);
 							join.to_alias = params.alias;
@@ -341,8 +342,10 @@ Essence.get = function(fields, get_params, callback) {
 								return parent_essence[join.parent_field] == child_essence[join.field];
 							});
 
-							if(!parent_essence[child_essence._meta.name]) parent_essence[child_essence._meta.name] = [];
-							parent_essence[child_essence._meta.name].push(child_essence);
+							var field_name = parent_essence._meta.config.fields[join.parent_field].alias ? join.alias : child_essence._meta.name;
+
+							if(!parent_essence[field_name]) parent_essence[field_name] = [];
+							parent_essence[field_name].push(child_essence);
 						});
 
 					});
@@ -457,6 +460,7 @@ Essence.prototype.getPublic = function(publicSchema) {
 	var _this = this;
 
 	var field_keys = [];
+	var aliases_keys = [];
 	_.forEach(this._meta.config.fields, function(field_value, field_key) {
 
 		if(
@@ -466,11 +470,20 @@ Essence.prototype.getPublic = function(publicSchema) {
 			(publicSchema && Array.isArray(publicSchema) && _.indexOf(publicSchema, field_value.public) >= 0) ||
 			(publicSchema && Array.isArray(field_value.public) && Array.isArray(publicSchema) && _.intersection(publicSchema, field_value.public).length > 0) ||
 			(field_value === true)
-			)
+			){
 			field_keys.push(field_key);
+			if(field_value.alias) aliases_keys.push(field_value.alias);
+		}
 	});
 
+	console.log("field_keys\n", field_keys);
+
 	var public_copy = _.pick(this, field_keys);
+	
+	_.forEach(aliases_keys, function(alias_key) {
+		public_copy[alias_key] = _this[alias_key].getPublic(publicSchema);
+	});
+
 	_.forEach(jorm, function(essence) {
 		if(essence._meta && _this[essence._meta.name]) 
 			public_copy[essence._meta.name] = _this[essence._meta.name].getPublic(publicSchema);
