@@ -481,7 +481,7 @@ Essence.prototype.getPublic = function(publicSchema) {
 	var public_copy = _.pick(this, field_keys);
 	
 	_.forEach(aliases_keys, function(alias_key) {
-		public_copy[alias_key] = _this[alias_key].getPublic(publicSchema);
+		if(_this[alias_key]) public_copy[alias_key] = _this[alias_key].getPublic(publicSchema);
 	});
 
 	_.forEach(jorm, function(essence) {
