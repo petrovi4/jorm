@@ -201,6 +201,7 @@ Essence.get = function(fields, get_params, callback) {
 						'in': 'in',
 						'like': 'like',
 						'=': 'equals',
+						'<>': 'notEquals',
 						'<': 'lt', 
 						'>': 'gt',
 						'<=': 'lte',
