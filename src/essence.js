@@ -64,6 +64,8 @@ Essence.get = function(fields, get_params, callback) {
 
 				// Подготавливаем запрашиваемые поля и алиасы для самой таблицы и джойнов
 				function(callback){
+					params.and_or = params.and_or || 'and';
+					
 					params.alias = params.alias || uuid.v4().replace(/-/g, '');
 					params.sql_obj = _this._meta.sql.as( params.alias );
 
@@ -245,7 +247,10 @@ Essence.get = function(fields, get_params, callback) {
 									where_clause_on_this_step.or(where_column);
 							}
 
-						if(where_clause) where_clause = where_clause.and(where_clause_on_this_step);
+						if(where_clause) 
+							where_clause = params.and_or.toLowerCase() == 'and'? 
+								where_clause.and(where_clause_on_this_step):
+								where_clause.or(where_clause_on_this_step);
 						else where_clause = where_clause_on_this_step;
 
 						// console.log('where_clause', where_clause.toQuery());

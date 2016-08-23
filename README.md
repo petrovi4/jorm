@@ -135,6 +135,7 @@ jorm.User.get({
 	post_count			: [1,2,3] // 'in' clause
 	gender				: ['m','f', null] // => gender in ('m','f') or gender is null
 }, {
+	and_or: 'or',	// where by fields with 'OR' clause
 	fields: ['id', 'name'] // get from db only this fields
 	},function(err, users) {
 	if(err) return console.error(err);
