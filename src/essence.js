@@ -199,6 +199,7 @@ Essence.get = function(fields, get_params, callback) {
 
 					var sql_comparsion = {
 						'in': 'in',
+						'not in': 'notIn',
 						'like': 'like',
 						'=': 'equals',
 						'<>': 'notEquals',
