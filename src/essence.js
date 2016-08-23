@@ -143,7 +143,7 @@ Essence.get = function(fields, get_params, callback) {
 						};
 
 						// массив {id: [1,2,3]} => where id in (1,2,3)
-						if(Array.isArray(field_value)) full_field.comparsion = 'in';
+						if(Array.isArray(field_value) && full_field.comparsion != 'not in') full_field.comparsion = 'in';
 						// простейшее определение {id: 3} => where id = 3
 						else if(typeof field_value == 'number' || typeof field_value == 'string') ;
 						// в значении уже полное определение
@@ -167,7 +167,7 @@ Essence.get = function(fields, get_params, callback) {
 							};
 
 							// массив {id: [1,2,3]} => where id in (1,2,3)
-							if(Array.isArray(field_value)) full_field.comparsion = 'in';
+							if(Array.isArray(field_value) && full_field.comparsion != 'not in') full_field.comparsion = 'in';
 							// простейшее определение {id: 3} => where id = 3
 							else if(typeof field_value == 'number' || typeof field_value == 'string') ;
 							// в значении уже полное определение
