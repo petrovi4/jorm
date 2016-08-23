@@ -65,7 +65,7 @@ Essence.get = function(fields, get_params, callback) {
 				// Подготавливаем запрашиваемые поля и алиасы для самой таблицы и джойнов
 				function(callback){
 					params.and_or = params.and_or || 'and';
-					
+
 					params.alias = params.alias || uuid.v4().replace(/-/g, '');
 					params.sql_obj = _this._meta.sql.as( params.alias );
 
@@ -200,9 +200,7 @@ Essence.get = function(fields, get_params, callback) {
 					var where_clause = null;
 
 					var sql_comparsion = {
-						'in': 'in',
 						'not in': 'notIn',
-						'like': 'like',
 						'=': 'equals',
 						'<>': 'notEquals',
 						'<': 'lt', 
@@ -234,12 +232,14 @@ Essence.get = function(fields, get_params, callback) {
 							full_field.comparsion = full_field.comparsion.toLowerCase();
 
 						// корректируем оператор сравнения
-						if(!_.has(sql_comparsion, full_field.comparsion)) return callback({errCode: 'WRONG_WHERE_FIELD_COMPARSION'});
-						else full_field.comparsion = sql_comparsion[full_field.comparsion];
+						if(sql_comparsion[full_field.comparsion]) full_field.comparsion = sql_comparsion[full_field.comparsion];
 
 						var where_clause_on_this_step = full_field.sql_columns[0][ full_field.comparsion ]( full_field.value );
 						if(full_field.sql_columns.length > 1)
 							for(var i=1; i<full_field.sql_columns.length; i++){
+
+								if(typeof full_field.sql_columns[i][ full_field.comparsion ] != 'function') return callback({errCode: 'WRONG_WHERE_FIELD_COMPARSION'});
+
 								var where_column = full_field.sql_columns[i][ full_field.comparsion ]( full_field.value )
 
 								where_clause_on_this_step = (full_field.and_or.toLowerCase() == 'and') ? 
