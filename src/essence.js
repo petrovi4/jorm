@@ -389,6 +389,7 @@ Essence.prototype.save = function(params, callback) {
 	var _this = this;
 	var _query;
 
+	if(!params) params = {};
 	if(!callback && typeof params == "function") { callback = params; params = {} };
 	if(typeof params == "function") params = params();
 
