@@ -28,6 +28,6 @@
 		"lodash": "4.13.1",
 		"node-uuid": "1.4.3",
 		"pg": "6.0.2",
-		"sql": "0.70.0"
+		"sql": "git://github.com/petrovi4/node-sql.git#923b275dc0f3094a1560937ec45e8acdf324e64d"
 	}
 }
