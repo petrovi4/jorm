@@ -142,7 +142,7 @@ jorm.User.get({
 	console.log(users.getPublic()); // getPublic() work for arrays too
 })
 ```
-
+Avaliable comparsions: 'not in', '=', '<>', '<', '>', '<=', '=<', '>=', '=>', 'is null', 'is not null' and full set from https://github.com/brianc/node-sql/blob/master/lib/node/valueExpression.js
 
 ### Order, Limit and Offset 
 

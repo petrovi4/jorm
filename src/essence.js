@@ -228,17 +228,19 @@ Essence.get = function(fields, get_params, callback) {
 						// добиваем оператором сравнения
 						if(!_.has(full_field, 'comparsion'))
 							full_field.comparsion = '=';
-						else
-							full_field.comparsion = full_field.comparsion.toLowerCase();
 
 						// корректируем оператор сравнения
 						if(sql_comparsion[full_field.comparsion]) full_field.comparsion = sql_comparsion[full_field.comparsion];
+						else if(sql_comparsion[full_field.comparsion.toLowerCase()]) full_field.comparsion = sql_comparsion[full_field.comparsion.toLowerCase()];
 
+						if(typeof full_field.sql_columns[0][ full_field.comparsion ] != 'function') return callback({errCode: 'WRONG_WHERE_FIELD_COMPARSION', details: full_field.comparsion});
+						
 						var where_clause_on_this_step = full_field.sql_columns[0][ full_field.comparsion ]( full_field.value );
+
 						if(full_field.sql_columns.length > 1)
 							for(var i=1; i<full_field.sql_columns.length; i++){
 
-								if(typeof full_field.sql_columns[i][ full_field.comparsion ] != 'function') return callback({errCode: 'WRONG_WHERE_FIELD_COMPARSION'});
+								if(typeof full_field.sql_columns[i][ full_field.comparsion ] != 'function') return callback({errCode: 'WRONG_WHERE_FIELD_COMPARSION', details: full_field.comparsion});
 
 								var where_column = full_field.sql_columns[i][ full_field.comparsion ]( full_field.value )
 
