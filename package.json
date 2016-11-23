@@ -1,33 +1,33 @@
 {
-	"name": "jorm",
-	"description": "Simple orm - just orm",
-	"main": "./src/jorm",
-	"author": {
-		"name": "Alexey Talkan"
-	},
-	"scripts": {
-		"test": "./node_modules/.bin/mocha --reporter spec"
-	},
-	"version": "2.1.10",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/petrovi4/jorm.git"
-	},
-	"bugs": {
-		"url": "https://github.com/petrovi4/jorm/issues"
-	},
-	"devDependencies": {
-		"chai": "3.5.0",
-		"mocha": "2.5.3"
-	},
-	"readmeFilename": "README.md",
-	"homepage": "https://github.com/petrovi4/jorm",
-	"dependencies": {
-		"async": "1.2.1",
-		"extend": "1.2.1",
-		"lodash": "4.13.1",
-		"node-uuid": "1.4.3",
-		"pg": "6.0.2",
-		"sql": "git://github.com/petrovi4/node-sql.git#923b275dc0f3094a1560937ec45e8acdf324e64d"
-	}
+  "name": "jorm",
+  "description": "Simple orm - just orm",
+  "main": "./src/jorm",
+  "author": {
+    "name": "Alexey Talkan"
+  },
+  "scripts": {
+    "test": "./node_modules/.bin/mocha --reporter spec"
+  },
+  "version": "2.1.10",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/petrovi4/jorm.git"
+  },
+  "bugs": {
+    "url": "https://github.com/petrovi4/jorm/issues"
+  },
+  "devDependencies": {
+    "chai": "3.5.0",
+    "mocha": "2.5.3"
+  },
+  "readmeFilename": "README.md",
+  "homepage": "https://github.com/petrovi4/jorm",
+  "dependencies": {
+    "async": "1.2.1",
+    "extend": "1.2.1",
+    "lodash": "4.13.1",
+    "pg": "6.0.2",
+    "sql": "git://github.com/petrovi4/node-sql.git#923b275dc0f3094a1560937ec45e8acdf324e64d",
+    "uuid": "^3.0.0"
+  }
 }
