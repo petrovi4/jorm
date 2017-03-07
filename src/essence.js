@@ -1,7 +1,7 @@
 var pg = require('pg');
 var async = require('async');
 var _ = require('lodash');
-var uuid = require('node-uuid');
+var uuid = require('uuid');
 var crypto = require('crypto');
 
 var Essence = function(essenseType, params, alias) {	
