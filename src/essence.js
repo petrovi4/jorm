@@ -1,7 +1,7 @@
 var pg = require('pg');
 var async = require('async');
 var _ = require('lodash');
-var uuid = require('uuid');
+var uuid = require('node-uuid');
 var crypto = require('crypto');
 
 var Essence = function(essenseType, params, alias) {	
@@ -79,20 +79,29 @@ Essence.get = function(fields, get_params, callback) {
 					_.forEach(params.join, function(join) {
 						join.to = join.to || _this;
 
-						join.alias = join.alias || join.to._meta.config.fields[join.parent_field].alias || uuid.v4().replace(/-/g, '');
+						join.alias = join.alias || (join.to._meta && join.to._meta.config.fields[join.parent_field].alias) || uuid.v4().replace(/-/g, '');
 						join.sql_obj = join.join._meta.sql.as(join.alias);
 
-						if(join.to._meta.name == _this._meta.name) {
+						if(join.to._meta && join.to._meta.name == _this._meta.name) {
 							join.to_sql_obj = _this._meta.sql.as(params.alias);
 							join.to_alias = params.alias;
+						}
+						else if(join.to) {
+							var parent_join = _.find(params.join, function(parent_join){ return parent_join.alias == join.to });
+							if(!parent_join) {
+								join_error = {errCode: 'NO_PARENT_JOIN_ESSENCE'}; 
+								return false;
+							};
+							join.to_sql_obj = parent_join.join._meta.sql.as( parent_join.alias );
+							join.to_alias = parent_join.alias;
 						}
 						else {
 							var parent_join = _.find(params.join, function(parent_join){ return parent_join.join._meta.name == join.to._meta.name });
 							if(!parent_join) {
 								join_error = {errCode: 'NO_PARENT_JOIN_ESSENCE'}; 
-								return false 
+								return false;
 							};
-							join.to_sql_obj = join.to._meta.sql.as( parent_join.alias );
+							join.to_sql_obj = parent_join.join._meta.sql.as( parent_join.alias );
 							join.to_alias = parent_join.alias;
 						}
 
