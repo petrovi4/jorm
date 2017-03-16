@@ -86,7 +86,7 @@ Essence.get = function(fields, get_params, callback) {
 							join.to_sql_obj = _this._meta.sql.as(params.alias);
 							join.to_alias = params.alias;
 						}
-						else if(join.to) {
+						else if(join.to && typeof join.to == 'string') {
 							var parent_join = _.find(params.join, function(parent_join){ return parent_join.alias == join.to });
 							if(!parent_join) {
 								join_error = {errCode: 'NO_PARENT_JOIN_ESSENCE'}; 
