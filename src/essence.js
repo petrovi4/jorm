@@ -1,6 +1,6 @@
 var pg = require('pg');
 var extend = require('extend');
-var uuid = require('node-uuid');
+var uuid = require('uuid');
 var crypto = require('crypto');
 
 var logPrefix = "\n\n[------------------ JORM ------------------ \n";
