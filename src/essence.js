@@ -487,12 +487,14 @@ Essence.prototype.getPublic = function(publicSchema) {
 	var _this = this;
 
 	function check_config_publicy(key) {
-		var config_value = _this._meta.config.fields[key];
-		return 			(!publicSchema && config_value.public) ||
+		var config_value = _this._meta.config.fields[key] || _.find(_this._meta.config.fields, {alias: key});
+		return config_value && (
+			(!publicSchema && config_value.public) ||
 			(publicSchema && config_value.public == publicSchema) ||
 			(publicSchema && Array.isArray(config_value.public) && _.indexOf(config_value.public, publicSchema) >= 0) ||
 			(publicSchema && Array.isArray(publicSchema) && _.indexOf(publicSchema, config_value.public) >= 0) ||
-			(publicSchema && Array.isArray(config_value.public) && Array.isArray(publicSchema) && _.intersection(publicSchema, config_value.public).length > 0);
+			(publicSchema && Array.isArray(config_value.public) && Array.isArray(publicSchema) && _.intersection(publicSchema, config_value.public).length > 0)
+			);
 	}
 
 	var field_keys = [];
@@ -504,8 +506,7 @@ Essence.prototype.getPublic = function(publicSchema) {
 	});
 	// Проходим по полям, которые есть в созданном объекте
 	_.forOwn(_this, function(value, key) {
-		var config_value = _this._meta.config.fields[key] || _.find(_this._meta.config.fields, {alias: key});
-		if(config_value && check_config_publicy(key) && field_keys.indexOf(key) == -1)
+		if(check_config_publicy(key) && field_keys.indexOf(key) == -1)
 			field_keys.push(key);
 		else if(Array.isArray(value))
 			field_keys.push(key);
