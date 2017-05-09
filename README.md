@@ -19,17 +19,18 @@ var config = {
 	User: {
 		table: 'user',
 		fields: {
-			id			: {pk: true}, // this is primary key to CRUD operations
-			created		: {default: function(params){ return new Date() }}, // field allows auto init default values
-			name		: {public: true, getPublic: _this => _this.name }, // this field will be in public object by .getPublic() method with any parameter, getPublic - function for field, which calling while getPublic method for essence executing
-			hpassword	: {},
-			email		: {public: 'lite'}, // this field will be in public object by .getPublic() and .getPublic('lite') method
-			phone		: {public: ['lite', 'full']}, // this field will be in public object by .getPublic(), .getPublic('lite'), .getPublic('full') and .getPublic('lite','anyOther') methods
-			is_alex		: {db: false, default: function(params){ return params.name == 'Alex' }}, // this field will be ignored in all db CRUD operations, but will be filled while user object created
+			id            : {pk: true}, // this is primary key to CRUD operations
+			created       : {default: function(params){ return new Date() }}, // field allows auto init default values
+			name          : {public: true }, // this field will be in public object by .getPublic() method with any parameter
+			hpassword     : {},
+			email         : {public: 'lite'}, // this field will be in public object by .getPublic() and .getPublic('lite') method
+			phone         : {public: ['lite', 'full']}, // this field will be in public object by .getPublic(), .getPublic('lite'), .getPublic('full') and .getPublic('lite','anyOther') methods
+			is_alex       : {db: false, default: function(params){ return params.name == 'Alex' }}, // this field will be ignored in all db CRUD operations, but will be filled while user object created
 			post_count_cache: {sql: 'COALESCE(post_count_cache, 0)'}, // custom sql part for select column post_count_cache
 			comments_count: { db: 'demand', sql: 'COALESCE((SELECT count(*) FROM "comment" WHERE "comment"."user_id" = "user"."id"),0)' }, // this field including in query only by demand. All tables and columns must be with quotes (")
 			current_geo_id: {public:true, alias:'GeoCurrent'},
-			birth_geo_id  : {public:true, alias:'GeoBirth'} // specify alias to separete fields in get request with joined objects
+			birth_geo_id  : {public:true, alias:'GeoBirth'} // specify alias to separete fields in get request with joined objects (this is alternate method for 'alias' in 'join' params)
+			link          : { db:false, getPublic: function(_this) { return 'href://site.com/user/'+_this.id; } }, // getPublic - function for field, which calling while getPublic method for essence executing
 		},
 
 		// Optional possible DB triggers - all combinations of 'select', 'insert', 'update', 'delete' commands, and 'after', 'before', 'error' events

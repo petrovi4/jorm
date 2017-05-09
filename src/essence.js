@@ -486,40 +486,40 @@ Essence.prototype.delete = function(params, callback) {
 Essence.prototype.getPublic = function(publicSchema) {
 	var _this = this;
 
+	function check_config_publicy(key) {
+		var config_value = _this._meta.config.fields[key];
+		return 			(!publicSchema && config_value.public) ||
+			(publicSchema && config_value.public == publicSchema) ||
+			(publicSchema && Array.isArray(config_value.public) && _.indexOf(config_value.public, publicSchema) >= 0) ||
+			(publicSchema && Array.isArray(publicSchema) && _.indexOf(publicSchema, config_value.public) >= 0) ||
+			(publicSchema && Array.isArray(config_value.public) && Array.isArray(publicSchema) && _.intersection(publicSchema, config_value.public).length > 0);
+	}
+
 	var field_keys = [];
-	var aliases_keys = [];
-	var internal_public_key = [];
+
+	// Проходим по полям из конфига
 	_.forEach(this._meta.config.fields, function(field_value, field_key) {
-
-		if(
-			(!publicSchema && field_value.public) ||
-			(publicSchema && field_value.public == publicSchema) ||
-			(publicSchema && Array.isArray(field_value.public) && _.indexOf(field_value.public, publicSchema) >= 0) ||
-			(publicSchema && Array.isArray(publicSchema) && _.indexOf(publicSchema, field_value.public) >= 0) ||
-			(publicSchema && Array.isArray(field_value.public) && Array.isArray(publicSchema) && _.intersection(publicSchema, field_value.public).length > 0) ||
-			(field_value === true)
-			){
+		if(check_config_publicy(field_key) && field_keys.indexOf(field_key) == -1)
 			field_keys.push(field_key);
-			if(field_value.alias) aliases_keys.push(field_value.alias);
-			else if(typeof field_value.getPublic === 'function') internal_public_key.push(field_key);
-		}
 	});
-
-	var public_copy = _.pick(this, field_keys);
-	
-	_.forEach(aliases_keys, function(alias_key) {
-		if(_this[alias_key]) public_copy[alias_key] = _this[alias_key].getPublic(publicSchema);
+	// Проходим по полям, которые есть в созданном объекте
+	_.forOwn(_this, function(value, key) {
+		var config_value = _this._meta.config.fields[key] || _.find(_this._meta.config.fields, {alias: key});
+		if(config_value && check_config_publicy(key) && field_keys.indexOf(key) == -1)
+			field_keys.push(key);
+		else if(Array.isArray(value))
+			field_keys.push(key);
 	});
+	var public_copy = {};
 
-	_.forEach(_this._meta.jorm, function(essence) {
-		if(essence._meta && _this[essence._meta.name]) 
-			public_copy[essence._meta.name] = _this[essence._meta.name].getPublic(publicSchema);
+	_.forEach(field_keys, function(key) {
+		var config_value = _this._meta.config.fields[key] || _.find(_this._meta.config.fields, {alias: key});
+
+		if(Array.isArray(_this[key])) public_copy[key] = _this[key].getPublic(publicSchema);
+		else if(_this[key] && typeof _this[key].getPublic == 'function') public_copy[key] = _this[key].getPublic(publicSchema);
+		else if(config_value && typeof config_value.getPublic == 'function') public_copy[key] = config_value.getPublic(_this, publicSchema);
+		else public_copy[key] = _this[key];
 	});
-
-	_.forEach(internal_public_key, function(field_key) {
-		var internal_public_value = _this._meta.config.fields[field_key].getPublic(_this, publicSchema);
-		public_copy[field_key] = internal_public_value;
-	});	
 
 	return public_copy;
 };

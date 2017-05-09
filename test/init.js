@@ -42,6 +42,7 @@ var config = {
 			password					: { db: false },
 			post_count_cache	: { db: ['select','update'], default: 0, sql: 'COALESCE("user"."post_count_cache", 0)' },
 			comments_count		: { db: 'demand', sql: 'COALESCE((SELECT count(*) FROM "comment" WHERE "comment"."user_id" = "user"."id"),0)' },
+			link							: { public: true, db:false, getPublic: function(_this) { return 'href://site.com/user/'+_this.id; } }
 		},
 		init					: function() { if(!this.hpassword) this.hpassword = this.email+this.password; },
 		
@@ -76,7 +77,7 @@ var config = {
 			created					: { default: function(){ return new Date(); } },
 			post_id					: { public: ['lite'] },
 			user_id					: { public: ['lite'] },
-			text						: { public: true },
+			text						: { public: true }
 		},
 	},
 
