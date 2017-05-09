@@ -21,7 +21,7 @@ var config = {
 		fields: {
 			id			: {pk: true}, // this is primary key to CRUD operations
 			created		: {default: function(params){ return new Date() }}, // field allows auto init default values
-			name		: {public: true}, // this field will be in public object by .getPublic() method with any parameter
+			name		: {public: true, getPublic: _this => _this.name }, // this field will be in public object by .getPublic() method with any parameter, getPublic - function for field, which calling while getPublic method for essence executing
 			hpassword	: {},
 			email		: {public: 'lite'}, // this field will be in public object by .getPublic() and .getPublic('lite') method
 			phone		: {public: ['lite', 'full']}, // this field will be in public object by .getPublic(), .getPublic('lite'), .getPublic('full') and .getPublic('lite','anyOther') methods

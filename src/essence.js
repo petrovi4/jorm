@@ -79,7 +79,7 @@ Essence.get = function(fields, get_params, callback) {
 					_.forEach(params.join, function(join) {
 						join.to = join.to || _this;
 
-						join.alias = join.alias || (join.to._meta && join.to._meta.config.fields[join.parent_field].alias) || uuid.v4().replace(/-/g, '');
+						join.alias = join.alias || (join.to._meta && join.to._meta.config.fields[join.parent_field].alias) || join.join._meta.name || uuid.v4().replace(/-/g, '');
 						join.sql_obj = join.join._meta.sql.as(join.alias);
 
 						if(join.to._meta && join.to._meta.name == _this._meta.name) {
@@ -361,7 +361,7 @@ Essence.get = function(fields, get_params, callback) {
 							});
 
 							_.forEach(parent_essences, function (parent_essence) {
-								var field_name = parent_essence._meta.config.fields[join.parent_field].alias ? join.alias : child_essence._meta.name;
+								var field_name = join.alias || child_essence._meta.name;
 	
 								if(!parent_essence[field_name]) parent_essence[field_name] = [];
 								parent_essence[field_name].push(child_essence);
@@ -482,6 +482,7 @@ Essence.prototype.getPublic = function(publicSchema) {
 
 	var field_keys = [];
 	var aliases_keys = [];
+	var internal_public_key = [];
 	_.forEach(this._meta.config.fields, function(field_value, field_key) {
 
 		if(
@@ -494,6 +495,7 @@ Essence.prototype.getPublic = function(publicSchema) {
 			){
 			field_keys.push(field_key);
 			if(field_value.alias) aliases_keys.push(field_value.alias);
+			else if(typeof field_value.getPublic === 'function') internal_public_key.push(field_key);
 		}
 	});
 
@@ -507,6 +509,11 @@ Essence.prototype.getPublic = function(publicSchema) {
 		if(essence._meta && _this[essence._meta.name]) 
 			public_copy[essence._meta.name] = _this[essence._meta.name].getPublic(publicSchema);
 	});
+
+	_.forEach(internal_public_key, function(field_key) {
+		var internal_public_value = _this._meta.config.fields[field_key].getPublic(_this, publicSchema);
+		public_copy[field_key] = internal_public_value;
+	});	
 
 	return public_copy;
 }
