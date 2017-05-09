@@ -1,8 +1,8 @@
-var expect = require('chai').expect
+var expect = require('chai').expect;
 
 var dto = require('./init');
 
-describe("Run [SELECT] tests", function() {
+describe('Run [SELECT] tests', function() {
 	it('Check select by one field ==', function(done) {
 		dto.User.get({ id: 1 }, function(err, users) {
 			expect(err).to.not.exist;

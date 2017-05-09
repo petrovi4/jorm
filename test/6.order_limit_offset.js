@@ -1,8 +1,8 @@
-var expect = require('chai').expect
+var expect = require('chai').expect;
 
 var dto = require('./init');
 
-describe("Run [ORDER-LIMIT-OFFSET] tests", function() {
+describe('Run [ORDER-LIMIT-OFFSET] tests', function() {
 	it('Check select with simlpe order asc', function(done) {
 		dto.User.get({
 		}, {

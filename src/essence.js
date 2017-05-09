@@ -1,8 +1,10 @@
-var pg = require('pg');
+// var pg = require('pg');
 var async = require('async');
 var _ = require('lodash');
 var uuid = require('uuid');
-var crypto = require('crypto');
+// var crypto = require('crypto');
+
+// var jorm = require('./jorm');
 
 var Essence = function(essenseType, params, alias) {	
 	// console.log('\n\ninit', essenseType._meta.name, 'by', params, alias);
@@ -23,10 +25,10 @@ var Essence = function(essenseType, params, alias) {
 
 	if(this.init) this.init();
 	// console.log(this);
-}
+};
 
 function getSelectFields(essence) {	
-	var fields = _.pickBy(essence._meta.config.fields, function(field_value, field_key) {
+	var fields = _.pickBy(essence._meta.config.fields, function(field_value) {
 		return !_.has(field_value, 'db') || 
 			field_value['db'] == 'select' || 
 			(Array.isArray(field_value['db']) && field_value['db'].indexOf('select') != -1);
@@ -34,12 +36,12 @@ function getSelectFields(essence) {
 	fields = _.keys(fields);
 	return fields;
 }
-function fieldsWithAlias (meta, fields, alias) {
+function fieldsWithAlias (meta, fields, sql_alias) {
 	return _.map(fields, function(field) {
 		if(_.has(meta.config.fields[field], 'sql'))
-			return meta.config.fields[field].sql.replace('"'+meta.config.table+'"', '"'+alias+'"') + ' as "' + alias + '.' + field + '"';
+			return meta.config.fields[field].sql.replace('"'+meta.config.table+'"', '"'+sql_alias+'"') + ' as "' + sql_alias + '.' + field + '"';
 		else 
-			return meta.sql.as(alias)[field].as(alias+'.'+field);
+			return meta.sql.as(sql_alias)[field].as(sql_alias+'.'+field);
 	});
 }
 
@@ -55,8 +57,8 @@ Essence.get = function(fields, get_params, callback) {
 	var _this = this;
 	var _query;
 
-	jorm.dbLabmda(
-		jorm[_this._meta.name]['select_before'],
+	_this._meta.jorm.dbLabmda(
+		_this._meta.jorm[_this._meta.name]['select_before'],
 
 		function(client, callback) {
 
@@ -66,12 +68,12 @@ Essence.get = function(fields, get_params, callback) {
 				function(callback){
 					params.and_or = params.and_or || 'and';
 
-					params.alias = params.alias || uuid.v4().replace(/-/g, '');
-					params.sql_obj = _this._meta.sql.as( params.alias );
+					params.sql_alias = params.alias || uuid.v4().replace(/-/g, '');
+					params.sql_obj = _this._meta.sql.as( params.sql_alias );
 
 					params.fields = params.fields || getSelectFields(_this);
 					params.fields = _.compact(_.concat(params.fields, params.demand));
-					params.fields = fieldsWithAlias(_this._meta, params.fields, params.alias);
+					params.fields = fieldsWithAlias(_this._meta, params.fields, params.sql_alias);
 
 					var fieldsToSelect = params.fields;
 
@@ -79,34 +81,39 @@ Essence.get = function(fields, get_params, callback) {
 					_.forEach(params.join, function(join) {
 						join.to = join.to || _this;
 
-						join.alias = join.alias || (join.to._meta && join.to._meta.config.fields[join.parent_field].alias) || join.join._meta.name || uuid.v4().replace(/-/g, '');
-						join.sql_obj = join.join._meta.sql.as(join.alias);
+						join.alias = join.alias || join.join._meta.name;
+						join.sql_alias = uuid.v4().replace(/-/g, '');
+						join.sql_obj = join.join._meta.sql.as(join.sql_alias);
 
 						if(join.to._meta && join.to._meta.name == _this._meta.name) {
-							join.to_sql_obj = _this._meta.sql.as(params.alias);
+							join.to_sql_obj = _this._meta.sql.as(params.sql_alias);
 							join.to_alias = params.alias;
 						}
 						else if(join.to && typeof join.to == 'string') {
-							var parent_join = _.find(params.join, function(parent_join){ return parent_join.alias == join.to });
-							if(!parent_join) {
-								join_error = {errCode: 'NO_PARENT_JOIN_ESSENCE'}; 
+							var parent_join1 = _.find(params.join, function(parent_join){ return parent_join.alias == join.to; });
+							if(!parent_join1) {
+								join_error = {errCode: 'NO_PARENT_JOIN_ESSENCE_BY_ALIAS'}; 
 								return false;
-							};
-							join.to_sql_obj = parent_join.join._meta.sql.as( parent_join.alias );
-							join.to_alias = parent_join.alias;
+							}
+							join.to_sql_obj = parent_join1.join._meta.sql.as( parent_join1.sql_alias );
+							join.to_alias = parent_join1.alias;
+						}
+						else if(join.to._meta){
+							var parent_join2 = _.find(params.join, function(parent_join){ return parent_join.join._meta.name == join.to._meta.name; });
+							if(!parent_join2) {
+								join_error = {errCode: 'NO_PARENT_JOIN_ESSENCE_BY_ENTITY'}; 
+								return false;
+							}
+							join.to_sql_obj = parent_join2.join._meta.sql.as( parent_join2.sql_alias );
+							join.to_alias = parent_join2.alias;
 						}
 						else {
-							var parent_join = _.find(params.join, function(parent_join){ return parent_join.join._meta.name == join.to._meta.name });
-							if(!parent_join) {
-								join_error = {errCode: 'NO_PARENT_JOIN_ESSENCE'}; 
-								return false;
-							};
-							join.to_sql_obj = parent_join.join._meta.sql.as( parent_join.alias );
-							join.to_alias = parent_join.alias;
+							join_error = {errCode: 'NO_PARENT_JOIN_ESSENCE_BY_TO'}; 
+							return false;
 						}
 
 						join.fields = join.fields || getSelectFields(join.join);
-						join.fields = fieldsWithAlias(join.join._meta, join.fields, join.alias);
+						join.fields = fieldsWithAlias(join.join._meta, join.fields, join.sql_alias);
 
 						fieldsToSelect = _.concat(fieldsToSelect, join.fields);
 					});
@@ -145,12 +152,12 @@ Essence.get = function(fields, get_params, callback) {
 						// console.log('process', field_value, field_key);
 						
 						var full_field = {
-								alias: params.alias,
-								value: field_value, 
-								columns: [field_key],
-								comparsion: '=',
-								sql_obj: params.sql_obj,
-								and_or: (field_value && field_value.and_or) || 'and'
+							alias: params.sql_alias,
+							value: field_value, 
+							columns: [field_key],
+							comparsion: '=',
+							sql_obj: params.sql_obj,
+							and_or: (field_value && field_value.and_or) || 'and'
 						};
 
 						// массив {id: [1,2,3]} => where id in (1,2,3)
@@ -160,7 +167,7 @@ Essence.get = function(fields, get_params, callback) {
 						// в значении уже полное определение
 						else _.assign(full_field, field_value);
 
-						fields_with_full_description.push(full_field)
+						fields_with_full_description.push(full_field);
 					});
 
 					// Поля WHERE сджойненных таблиц
@@ -169,12 +176,12 @@ Essence.get = function(fields, get_params, callback) {
 							
 							// простейшее определение {id: 3} => where id = 3
 							var full_field = {
-									alias: join.alias,
-									value: field_value, 
-									columns: [field_key],
-									comparsion: '=',
-									sql_obj: join.sql_obj,
-									and_or: field_value.and_or || 'and'
+								alias: join.sql_alias,
+								value: field_value, 
+								columns: [field_key],
+								comparsion: '=',
+								sql_obj: join.sql_obj,
+								and_or: field_value.and_or || 'and'
 							};
 
 							// массив {id: [1,2,3]} => where id in (1,2,3)
@@ -184,7 +191,7 @@ Essence.get = function(fields, get_params, callback) {
 							// в значении уже полное определение
 							else _.assign(full_field, field_value);
 
-							fields_with_full_description.push(full_field)
+							fields_with_full_description.push(full_field);
 						});
 					});
 
@@ -220,7 +227,7 @@ Essence.get = function(fields, get_params, callback) {
 						'=>': 'gte',
 						'is null': 'isNull',
 						'is not null': 'isNotNull',
-					}
+					};
 
 					_.forEach(fields_with_full_description, function(full_field) {
 
@@ -241,6 +248,7 @@ Essence.get = function(fields, get_params, callback) {
 						// корректируем оператор сравнения
 						if(sql_comparsion[full_field.comparsion]) full_field.comparsion = sql_comparsion[full_field.comparsion];
 						else if(sql_comparsion[full_field.comparsion.toLowerCase()]) full_field.comparsion = sql_comparsion[full_field.comparsion.toLowerCase()];
+						else if(full_field.sql_columns[0][ full_field.comparsion.toLowerCase() ]) full_field.comparsion = full_field.comparsion.toLowerCase();
 
 						if(typeof full_field.sql_columns[0][ full_field.comparsion ] != 'function') return callback({errCode: 'WRONG_WHERE_FIELD_COMPARSION', details: full_field.comparsion});
 						
@@ -251,7 +259,7 @@ Essence.get = function(fields, get_params, callback) {
 
 								if(typeof full_field.sql_columns[i][ full_field.comparsion ] != 'function') return callback({errCode: 'WRONG_WHERE_FIELD_COMPARSION', details: full_field.comparsion});
 
-								var where_column = full_field.sql_columns[i][ full_field.comparsion ]( full_field.value )
+								var where_column = full_field.sql_columns[i][ full_field.comparsion ]( full_field.value );
 
 								where_clause_on_this_step = (full_field.and_or.toLowerCase() == 'and') ? 
 									where_clause_on_this_step.and(where_column):
@@ -281,13 +289,13 @@ Essence.get = function(fields, get_params, callback) {
 
 						_.forEach(params.order, function(order) {
 							order.dto = order.dto || _this;
-							order.alias = order.dto._meta.name == _this._meta.name ? 
-								params.alias : 
-								_.find(params.join, function(join) {return join.join._meta.name == order.dto._meta.name}).alias;
+							order.sql_alias = order.dto._meta.name == _this._meta.name ? 
+								params.sql_alias : 
+								_.find(params.join, function(join) { return join.join._meta.name == order.dto._meta.name; }).sql_alias;
 
 							// console.log('order.alias', order.alias);
 
-							order.sql_obj = order.dto._meta.sql.as(order.alias);
+							order.sql_obj = order.dto._meta.sql.as(order.sql_alias);
 							var field_order_sql_obj = order.sql_obj[order.field];
 
 							if(!field_order_sql_obj) return callback({errCode: 'WRONG_ORDER_DEFINITION'});
@@ -317,11 +325,11 @@ Essence.get = function(fields, get_params, callback) {
 					result[params.alias] = [];
 
 					_.forEach(dataFromDB.rows, function(row) {						
-						var essence = new Essence(jorm[_this._meta.name], row, params.alias);
+						var essence = new Essence(_this._meta.jorm[_this._meta.name], row, params.sql_alias);
 						
 						var already_added = _.find(result[params.alias], function(existing_essence) { 
 							return existing_essence[_this._meta.pk] == essence[_this._meta.pk];
-						})
+						});
 
 						if(!already_added){
 							result[params.alias].push(essence);
@@ -329,19 +337,19 @@ Essence.get = function(fields, get_params, callback) {
 
 						_.forEach(params.join, function(join) {			
 
-							essence = new Essence(jorm[join.join._meta.name], row, join.alias);
+							essence = new Essence(_this._meta.jorm[join.join._meta.name], row, join.sql_alias);
 							if(!essence[join.join._meta.pk]) return;
 
 							if(!result[join.alias]) result[join.alias] = [];
 
 							var already_added = _.find(result[join.alias], function(existing_essence) { 
 								return existing_essence[join.join._meta.pk] == essence[join.join._meta.pk];
-							})
+							});
 
 							if(!already_added){
 								result[join.alias].push(essence);
 							}
-						})
+						});
 					});
 
 					callback(null, result);
@@ -361,11 +369,12 @@ Essence.get = function(fields, get_params, callback) {
 							});
 
 							_.forEach(parent_essences, function (parent_essence) {
-								var field_name = join.alias || child_essence._meta.name;
+								var field_name = join.alias;
+								// var field_name = (join.to._meta && join.to._meta.config.fields[join.parent_field].alias) || child_essence._meta.name;
 	
 								if(!parent_essence[field_name]) parent_essence[field_name] = [];
 								parent_essence[field_name].push(child_essence);
-							})
+							});
 						});
 
 					});
@@ -385,8 +394,8 @@ Essence.get = function(fields, get_params, callback) {
 			});
 		},
 
-		jorm[_this._meta.name]['select_after'],
-		jorm[_this._meta.name]['select_error'],
+		_this._meta.jorm[_this._meta.name]['select_after'],
+		_this._meta.jorm[_this._meta.name]['select_error'],
 
 		get_params,
 
@@ -394,24 +403,24 @@ Essence.get = function(fields, get_params, callback) {
 			callback && callback(err, dataFromDB, _query);
 		}
 	);
-}
+};
 
 Essence.prototype.save = function(params, callback) {
 	var _this = this;
 	var _query;
 
 	if(!params) params = {};
-	if(!callback && typeof params == "function") { callback = params; params = {} };
-	if(typeof params == "function") params = params();
+	if(!callback && typeof params == 'function') { callback = params; params = {}; }
+	if(typeof params == 'function') params = params();
 
 	var command = this[this._meta.pk] ? 'update' : 'insert';
 
-	jorm.dbLabmda(
-		jorm[_this._meta.name][command+'_before'],
+	_this._meta.jorm.dbLabmda(
+		_this._meta.jorm[_this._meta.name][command+'_before'],
 
 		function(client, callback) {
 			
-			var fields = _.pickBy(_this._meta.config.fields, function(field_value, field_key) {
+			var fields = _.pickBy(_this._meta.config.fields, function(field_value) {
 				return !_.has(field_value, 'db') || 
 					field_value['db'] == command || 
 					(Array.isArray(field_value['db']) && field_value['db'].indexOf(command) != -1);
@@ -429,8 +438,8 @@ Essence.prototype.save = function(params, callback) {
 			client.query(_query.text, _query.values, callback);
 		},
 
-		jorm[_this._meta.name][command+'_after'],
-		jorm[_this._meta.name][command+'_error'],
+		_this._meta.jorm[_this._meta.name][command+'_after'],
+		_this._meta.jorm[_this._meta.name][command+'_error'],
 
 		params,
 
@@ -447,16 +456,13 @@ Essence.prototype.delete = function(params, callback) {
 	var _this = this;
 	var _query;
 
-	if(!callback && typeof params == "function") { callback = params; params = {} };
-	if(typeof params == "function") params = params();
+	if(!callback && typeof params == 'function') { callback = params; params = {}; }
+	if(typeof params == 'function') params = params();
 
-	jorm.dbLabmda(
-		jorm[_this._meta.name]['delete_before'],
+	_this._meta.jorm.dbLabmda(
+		_this._meta.jorm[_this._meta.name]['delete_before'],
 
 		function(client, callback) {
-			var sql = _this._meta.sql;
-			var pk = _this._meta.pk;
-
 			_query = _this._meta.sql.delete().where( _this._meta.sql[_this._meta.pk].equals( _this[_this._meta.pk] ) ).toQuery();
 			
 			console.log('\n', _query);
@@ -464,8 +470,8 @@ Essence.prototype.delete = function(params, callback) {
 			client.query(_query.text, _query.values, callback);
 		},
 
-		jorm[_this._meta.name]['delete_after'],
-		jorm[_this._meta.name]['delete_error'],
+		_this._meta.jorm[_this._meta.name]['delete_after'],
+		_this._meta.jorm[_this._meta.name]['delete_error'],
 
 		params,
 
@@ -505,7 +511,7 @@ Essence.prototype.getPublic = function(publicSchema) {
 		if(_this[alias_key]) public_copy[alias_key] = _this[alias_key].getPublic(publicSchema);
 	});
 
-	_.forEach(jorm, function(essence) {
+	_.forEach(_this._meta.jorm, function(essence) {
 		if(essence._meta && _this[essence._meta.name]) 
 			public_copy[essence._meta.name] = _this[essence._meta.name].getPublic(publicSchema);
 	});
@@ -516,6 +522,6 @@ Essence.prototype.getPublic = function(publicSchema) {
 	});	
 
 	return public_copy;
-}
+};
 
 module.exports = Essence;

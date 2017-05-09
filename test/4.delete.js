@@ -1,8 +1,8 @@
-var expect = require('chai').expect
+var expect = require('chai').expect;
 
 var dto = require('./init');
 
-describe("Run [DELETE] tests", function() {
+describe('Run [DELETE] tests', function() {
 	it('Check success delete', function(done) {
 		var user = dto.User.create({
 			name: 'Test_User',

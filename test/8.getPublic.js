@@ -1,8 +1,8 @@
-var expect = require('chai').expect
+var expect = require('chai').expect;
 
 var dto = require('./init');
 
-describe("Run [getPublic] tests", function() {
+describe('Run [getPublic] tests', function() {
 	it('Check default getPublic structure', function(done) {
 		dto.User.get({
 			id: 1

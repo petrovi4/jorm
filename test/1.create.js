@@ -1,8 +1,8 @@
-var expect = require('chai').expect
+var expect = require('chai').expect;
 
 var dto = require('./init');
 
-describe("Run [CREATE] tests", function() {
+describe('Run [CREATE] tests', function() {
 	it('Check default jorm obect structure', function() {
 		var user = dto.User.create({
 			name: 'Test_User',

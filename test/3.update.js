@@ -1,8 +1,8 @@
-var expect = require('chai').expect
+var expect = require('chai').expect;
 
 var dto = require('./init');
 
-describe("Run [UPDATE] tests", function() {
+describe('Run [UPDATE] tests', function() {
 	it('Check success update', function(done) {
 		var user = dto.User.create({
 			name: 'Test_User',
@@ -12,7 +12,7 @@ describe("Run [UPDATE] tests", function() {
 
 		user.save(function(err, user) {
 
-			user.email = 'new.update.success@server.com'
+			user.email = 'new.update.success@server.com';
 
 			user.save(function(err, user) {
 				expect(err).to.not.exist;
@@ -41,12 +41,13 @@ describe("Run [UPDATE] tests", function() {
 
 		user.save(function(err, user) {
 
-			user.created = 'not_date_string'
+			user.created = 'not_date_string';
 
 			user.save(function(err, user) {
 				expect(err).to.exist;
+				expect(user).to.exist;
 
-			done();
+				done();
 			});
 		});
 	});

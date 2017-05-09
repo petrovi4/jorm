@@ -7,23 +7,24 @@ sql.setDialect('postgres');
 
 var essence = require('./essence');
 
-jorm = null;
+// jorm = null;
 
 Array.prototype.getPublic = function(fields, params) {
 	var publicArr = [];
 	_.forEach(this, function(item) {
 		var publicItem = 
-			item && (typeof(item.getPublic) == "function") ? 
+			item && (typeof(item.getPublic) == 'function') ? 
 				item.getPublic(fields, params) : 
 				item;
 		publicArr.push(publicItem);
 	});
 
 	return publicArr;
-}
+};
 
 module.exports = function(jormParams, config) {
-	jorm = this;
+	// jorm = this;
+	var _this = this;
 
 	_.assign(this, {logger: console}, jormParams);
 
@@ -35,15 +36,15 @@ module.exports = function(jormParams, config) {
 
 			// Подключаемся
 			function(callback){
-				pg.connect(jorm.connectionString, callback);
+				pg.connect(_this.connectionString, callback);
 			},
 
 			// Триггер before
 			function(client, donePG, callback){
-				_client = client
+				_client = client;
 				_donePG = donePG;
 
-				trigger_params.transaction ? jorm.begin_transaction(trigger_params, _client, beforeTrigger, callback) : beforeTrigger(trigger_params, _client, callback);
+				trigger_params.transaction ? _this.begin_transaction(trigger_params, _client, beforeTrigger, callback) : beforeTrigger(trigger_params, _client, callback);
 			},
 
 			// Выполняем основной функционал запроса
@@ -53,7 +54,7 @@ module.exports = function(jormParams, config) {
 
 			// Завершаем триггером after
 			function(dataFromDB, callback) {
-				trigger_params.transaction ? jorm.commit_transaction(trigger_params, _client, dataFromDB, afterTrigger, callback) : afterTrigger(trigger_params, _client, dataFromDB, callback);
+				trigger_params.transaction ? _this.commit_transaction(trigger_params, _client, dataFromDB, afterTrigger, callback) : afterTrigger(trigger_params, _client, dataFromDB, callback);
 			}
 
 		], function (err, dataFromDB) {
@@ -64,10 +65,10 @@ module.exports = function(jormParams, config) {
 			}
 
 			if(err)
-				trigger_params.transaction ? jorm.rollback_transaction(err, trigger_params, _client, errorTrigger, complete) : errorTrigger(err, trigger_params, _client, complete);
+				trigger_params.transaction ? _this.rollback_transaction(err, trigger_params, _client, errorTrigger, complete) : errorTrigger(err, trigger_params, _client, complete);
 			else complete();
 		});
-	}
+	};
 
 	this.default_before = function (params, client, callback) {
 		callback();
@@ -75,7 +76,7 @@ module.exports = function(jormParams, config) {
 
 	this.default_after = function (params, client, dataFromDB, callback) {
 		callback(null, dataFromDB);
-	}
+	};
 
 	this.default_error = function (err, params, client, callback) {
 		callback();
@@ -83,27 +84,29 @@ module.exports = function(jormParams, config) {
 
 	this.begin_transaction = function (params, client, before_handler, callback) {
 		client.query('BEGIN', function(err){
+			if(err) console.error(err);
 			before_handler(params, client, callback);
 		});
 	};
 
 	this.commit_transaction = function (params, client, dataFromDB, after_handler, callback) {
 		client.query('COMMIT', function(err){
+			if(err) console.error(err);
 			after_handler(params, client, dataFromDB, callback);
 		});
-	}
+	};
 
 	this.rollback_transaction = function (err, params, client, error_handler, callback) {
 		client.query('ROLLBACK', function(err){
 			error_handler(err, params, client, callback);
 		});
-	}
+	};
 
 	_.forEach(config, function(essenceConfig, essenceName) {
 		var pk = _.findKey(essenceConfig.fields, {pk: true}) || 'id';
 		if(!essenceConfig.fields[pk]) throw new Error('No primary key defined in essence ' + essenceName);
 
-		jorm[essenceName] = _.assign( {}, essence, {
+		_this[essenceName] = _.assign( {}, essence, {
 			init: essenceConfig.init,
 			create: function (params) {
 				return new essence(this, params || {});
@@ -111,12 +114,12 @@ module.exports = function(jormParams, config) {
 			_meta: {
 				name: essenceName,
 				pk: pk,
-				jorm: jorm,
+				jorm: _this,
 				config: essenceConfig,
 				sql: sql.define({
 					name: essenceConfig.table,
 					columns: _.pickBy(essenceConfig.fields, function(field_value) {
-						return _.has(field_value, 'db') || !field_value['db']
+						return _.has(field_value, 'db') || !field_value['db'];
 					})
 				})
 			}
@@ -125,8 +128,8 @@ module.exports = function(jormParams, config) {
 		_.forEach(['select', 'insert', 'update', 'delete'], function(command) {
 			_.forEach(['after', 'before', 'error'], function(trigger) {
 				var signature = command+'_'+trigger;
-				jorm[essenceName][signature] = essenceConfig[signature] || jorm['default_'+trigger];
+				_this[essenceName][signature] = essenceConfig[signature] || _this['default_'+trigger];
 			});
 		});
 	});
-}
+};

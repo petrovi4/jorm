@@ -1,8 +1,8 @@
-var expect = require('chai').expect
+var expect = require('chai').expect;
 
 var dto = require('./init');
 
-describe("Run [INSERT] tests", function() {
+describe('Run [INSERT] tests', function() {
 	it('Check success insert', function(done) {
 		var user = dto.User.create({
 			name: 'Test_User',
@@ -34,6 +34,7 @@ describe("Run [INSERT] tests", function() {
 
 		user.save(function(err, user) {
 			expect(err).to.exist;
+			expect(user).to.exist;
 
 			done();
 		});

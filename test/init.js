@@ -35,7 +35,7 @@ var config = {
 		table  : 'user',
 		fields : {
 			id								: { pk: true, public: true },
-			created						: { default: function(params){ return new Date() } },
+			created						: { default: function(){ return new Date(); } },
 			name							: { public: ['lite', 'admin'] },
 			email							: { public: 'admin' },
 			hpassword					: {},
@@ -43,7 +43,7 @@ var config = {
 			post_count_cache	: { db: ['select','update'], default: 0, sql: 'COALESCE("user"."post_count_cache", 0)' },
 			comments_count		: { db: 'demand', sql: 'COALESCE((SELECT count(*) FROM "comment" WHERE "comment"."user_id" = "user"."id"),0)' },
 		},
-		init					: function() { if(!this.hpassword) this.hpassword = this.email+this.password },
+		init					: function() { if(!this.hpassword) this.hpassword = this.email+this.password; },
 		
 		select_before : _before,
 		select_after : _after,
@@ -62,7 +62,7 @@ var config = {
 		table  : 'post',
 		fields : {
 			id							: { pk: true, public: true },
-			created					: { default: function(params){ return new Date() } },
+			created					: { default: function(){ return new Date(); } },
 			user_id					: { public: ['lite'] },
 			text						: { public: true },
 			comments_count	: { db: 'demand', default: 0 },
@@ -73,7 +73,7 @@ var config = {
 		table  : 'comment',
 		fields : {
 			id							: { pk: true, public: true },
-			created					: { default: function(params){ return new Date() } },
+			created					: { default: function(){ return new Date(); } },
 			post_id					: { public: ['lite'] },
 			user_id					: { public: ['lite'] },
 			text						: { public: true },
@@ -100,10 +100,10 @@ var config = {
 		update_error : _error,
 	}
 
-}
+};
 
 var dto = new jorm({
-	connectionString: "postgres://jorm_test_user:jorm_test_user_pass@localhost:5432/jorm_test",
+	connectionString: 'postgres://jorm_test_user:jorm_test_user_pass@localhost:5432/jorm_test',
 	logger: console
 }, config);
 

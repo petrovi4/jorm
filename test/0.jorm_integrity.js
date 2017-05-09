@@ -1,8 +1,8 @@
-var expect = require('chai').expect
+var expect = require('chai').expect;
 
 var dto = require('./init');
 
-describe("Run [JORM INTEGRITY] tests", function() {
+describe('Run [JORM INTEGRITY] tests', function() {
 	it('Check jorm objects exists', function() {
 		expect(dto).to.have.property('User');
 		expect(dto).to.have.property('Post');

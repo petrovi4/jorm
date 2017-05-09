@@ -185,7 +185,7 @@ jorm.Post.get({
 		created: {comparsion: '>', value: new Date()}
 	},{
 	join: [
-		{join: dto.User, to:dto.Post, field: 'id', parent_field: 'user_id'},
+		{join: dto.User, to:dto.Post, field: 'id', parent_field: 'user_id', alias: 'Author'},
 		{join: dto.Comment, field: 'id', parent_field: 'user_id'}, // if 'to' omitted, main essence implied (Post in this example)
 		{join: dto.User, to: dto.Comment, field: 'id', parent_field: 'user_id', where: {created: {comparsion: '>', value: new Date()}}, alias: 'CommentUser'}, // join-to-join to first dto.Comment as parent
 		{join: dto.Post, to:'CommentUser', field: 'user_id', parent_field: 'id',  }, // join to parent join with alias "CommentUser" (we can't use just "to:dto.User", because User already joined twice, and we need second one)
