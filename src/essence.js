@@ -552,7 +552,7 @@ Essence.prototype.getPublicInternal = function(fields, params) {
 				
 				var publicProperty = 
 					(typeof(this[property][j].getPublic) == "function") ? 
-						this[property][j].getPublic() : 
+						this[property][j].getPublic(fields, params) : 
 						this[property][j]
 
 				joinedEssences.push(publicProperty);
