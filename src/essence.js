@@ -131,6 +131,7 @@ Essence.get = function(fields, get_params, callback) {
 					var joinSubQuery = params.sql_obj;
 
 					_.forEach(params.join, function(join) {
+						if(!join.to_sql_obj[ join.parent_field ]) throw new Error(`Unknown field ${join.parent_field} in ${join.to_sql_obj.table._name}`);
 						joinSubQuery = joinSubQuery.leftJoin(join.sql_obj)
 							.on( join.to_sql_obj[ join.parent_field ].equals( join.sql_obj[ join.field ] ) );
 					});
