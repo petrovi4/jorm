@@ -44,7 +44,7 @@ module.exports = function(jormParams, config) {
 				_client = client;
 				_donePG = donePG;
 
-				trigger_params.transaction ? _this.begin_transaction(trigger_params, _client, beforeTrigger, callback) : beforeTrigger(trigger_params, _client, callback);
+				trigger_params && trigger_params.transaction ? _this.begin_transaction(trigger_params, _client, beforeTrigger, callback) : beforeTrigger(trigger_params, _client, callback);
 			},
 
 			// Выполняем основной функционал запроса
@@ -54,7 +54,7 @@ module.exports = function(jormParams, config) {
 
 			// Завершаем триггером after
 			function(dataFromDB, callback) {
-				trigger_params.transaction ? _this.commit_transaction(trigger_params, _client, dataFromDB, afterTrigger, callback) : afterTrigger(trigger_params, _client, dataFromDB, callback);
+				trigger_params && trigger_params.transaction ? _this.commit_transaction(trigger_params, _client, dataFromDB, afterTrigger, callback) : afterTrigger(trigger_params, _client, dataFromDB, callback);
 			}
 
 		], function (err, dataFromDB) {
