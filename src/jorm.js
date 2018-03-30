@@ -6,6 +6,7 @@ var sql = require('sql');
 sql.setDialect('postgres');
 
 var essence = require('./essence');
+var default_logger = require('./logger');
 
 // jorm = null;
 
@@ -26,7 +27,8 @@ module.exports = function(jormParams, config) {
 	// jorm = this;
 	var _this = this;
 
-	_.assign(this, {logger: console}, jormParams);
+	let logger = Object.assign(default_logger, jormParams.logger || {});
+	_.assign(this, jormParams, {logger});
 
 	this.dbLabmda = function (beforeTrigger, action, afterTrigger, errorTrigger, trigger_params, callback) {
 		var _client;

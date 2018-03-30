@@ -1,13 +1,9 @@
-// var pg = require('pg');
 var async = require('async');
 var _ = require('lodash');
 var uuid = require('uuid');
-// var crypto = require('crypto');
 
-// var jorm = require('./jorm');
 
 var Essence = function(essenseType, params, alias) {
-	// console.log('\n\ninit', essenseType._meta.name, 'by', params, alias);
 	var _this = this;
 
 	_.assign(this, essenseType);
@@ -24,7 +20,6 @@ var Essence = function(essenseType, params, alias) {
 	});
 
 	if(this.init) this.init();
-	// console.log(this);
 };
 
 function getSelectFields(essence) {
@@ -150,7 +145,6 @@ Essence.get = function(fields, get_params, callback) {
 
 					// Поля WHERE основной таблицы
 					_.forEach(fields, function(field_value, field_key) {
-						// console.log('process', field_value, field_key);
 
 						var full_field = {
 							alias: params.sql_alias,
@@ -195,8 +189,6 @@ Essence.get = function(fields, get_params, callback) {
 							fields_with_full_description.push(full_field);
 						});
 					});
-
-					// console.log('fields_with_full_description', fields_with_full_description);
 
 					// Определяем все sql колонки
 					_.forEach(fields_with_full_description, function(full_field) {
@@ -272,8 +264,6 @@ Essence.get = function(fields, get_params, callback) {
 								where_clause.and(where_clause_on_this_step):
 								where_clause.or(where_clause_on_this_step);
 						else where_clause = where_clause_on_this_step;
-
-						// console.log('where_clause', where_clause.toQuery());
 					});
 
 					if(where_clause) _query = _query.where(where_clause);
@@ -294,8 +284,6 @@ Essence.get = function(fields, get_params, callback) {
 								params.sql_alias :
 								_.find(params.join, function(join) { return join.join._meta.name == order.dto._meta.name; }).sql_alias;
 
-							// console.log('order.alias', order.alias);
-
 							order.sql_obj = order.dto._meta.sql.as(order.sql_alias);
 							var field_order_sql_obj = order.sql_obj[order.field];
 
@@ -315,7 +303,7 @@ Essence.get = function(fields, get_params, callback) {
 				function(callback) {
 					_query = _query.toQuery();
 
-					console.log('\n', _query);
+					_this._meta.jorm.logger.sql('\n', _query);
 
 					client.query(_query.text, _query.values, callback);
 				},
@@ -380,14 +368,12 @@ Essence.get = function(fields, get_params, callback) {
 
 					});
 
-					// console.log(JSON.stringify(result.getPublic(), null, '\t'));
-
 					callback(null, _.values(result[params.alias]));
 				}
 
 			], function (err, result) {
 				if(err) {
-					console.error(err);
+					_this._meta.jorm.logger.error(err);
 					return callback(err);
 				}
 
@@ -434,7 +420,7 @@ Essence.prototype.save = function(params, callback) {
 				_query.returning().toQuery() :
 				_query.where( _this._meta.sql[_this._meta.pk].equals(_this[_this._meta.pk]) ).toQuery();
 
-			console.log('\n', _query);
+			_this._meta.jorm.logger.sql('\n', _query);
 
 			client.query(_query.text, _query.values, callback);
 		},
@@ -445,7 +431,7 @@ Essence.prototype.save = function(params, callback) {
 		params,
 
 		function(err, dataFromDB) {
-			if(err) console.error(err);
+			if(err) _this._meta.jorm.logger.error(err);
 
 			if(!err && command == 'insert')	_this[_this._meta.pk] = dataFromDB.rows[0][_this._meta.pk];
 			callback && callback(err, _this, _query);
@@ -466,7 +452,7 @@ Essence.prototype.delete = function(params, callback) {
 		function(client, callback) {
 			_query = _this._meta.sql.delete().where( _this._meta.sql[_this._meta.pk].equals( _this[_this._meta.pk] ) ).toQuery();
 
-			console.log('\n', _query);
+			_this._meta.jorm.logger.sql('\n', _query);
 
 			client.query(_query.text, _query.values, callback);
 		},
@@ -477,7 +463,7 @@ Essence.prototype.delete = function(params, callback) {
 		params,
 
 		function(err) {
-			if(err) console.error(err);
+			if(err) _this._meta.jorm.logger.error(err);
 
 			callback && callback(err, _query);
 		}
@@ -495,7 +481,7 @@ Essence.prototype.getPublic = function(publicSchema) {
 			(publicSchema && Array.isArray(config_value.public) && _.indexOf(config_value.public, publicSchema) >= 0) ||
 			(publicSchema && Array.isArray(publicSchema) && _.indexOf(publicSchema, config_value.public) >= 0) ||
 			(publicSchema && Array.isArray(config_value.public) && Array.isArray(publicSchema) && _.intersection(publicSchema, config_value.public).length > 0)
-			);
+		);
 	}
 
 	var field_keys = [];
