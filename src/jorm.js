@@ -12,9 +12,9 @@ var essence = require('./essence');
 Array.prototype.getPublic = function(fields, params) {
 	var publicArr = [];
 	_.forEach(this, function(item) {
-		var publicItem = 
-			item && (typeof(item.getPublic) == 'function') ? 
-				item.getPublic(fields, params) : 
+		var publicItem =
+			item && (typeof(item.getPublic) == 'function') ?
+				item.getPublic(fields, params) :
 				item;
 		publicArr.push(publicItem);
 	});
@@ -61,7 +61,7 @@ module.exports = function(jormParams, config) {
 			function complete () {
 				_donePG&&_donePG();
 
-				callback(err, dataFromDB);			
+				callback(err, dataFromDB);
 			}
 
 			if(err)
